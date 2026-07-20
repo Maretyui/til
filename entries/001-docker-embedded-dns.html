@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Docker's embedded DNS beats hardcoded container IPs</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Docker's embedded DNS beats hardcoded container IPs</h2>
+    <p>
+      I run a few services on a shared Docker bridge network (a proxy
+      container, a game server panel, a couple of backend containers it
+      talks to). At one point I wired one container's config to reach
+      another by its bridge-network IP address, something like
+      <code>172.18.0.2:25566</code>, copied straight out of
+      <code>docker inspect</code>.
+    </p>
+    <p>
+      That worked fine until I restarted the stack. After the restart,
+      Docker handed out IPs in a different order — the address that used
+      to belong to container A now belonged to container B. Everything
+      that pointed at the old IP started connecting to the wrong service,
+      and the symptom looked exactly like a networking outage
+      ("connection refused" / "no route to host") rather than a stale
+      config problem, which cost more debugging time than it should have.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Docker's embedded DNS resolves container <em>names</em> (or
+      hostnames/aliases you set in Compose) on the same user-defined
+      network automatically, and that mapping stays correct across
+      restarts even if the underlying IP changes:
+    </p>
+    <pre><code>servers:
+  backend: "container-name:25566"   # good — survives restarts
+  # backend: "172.18.0.2:25566"     # bad — IP can get reassigned</code></pre>
+    <p>
+      Bridge-network container IPs are only stable for the lifetime of
+      the container, not the lifetime of the network. If two configs
+      need to reference each other across a restart boundary, use the
+      container name (or a Compose service alias), never the IP, even
+      for "it's just internal, it won't change" cases.
+    </p>
+  </article>
+</main>
+</body>
+</html>
