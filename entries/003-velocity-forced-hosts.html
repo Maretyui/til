@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Velocity's forced-hosts routes multiple domains to one Minecraft server</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Velocity's forced-hosts routes multiple domains to one Minecraft server</h2>
+    <p>
+      I run a couple of small Minecraft servers behind a single Velocity
+      proxy, and both domains pointed at the same public IP. The naive
+      expectation was that players would need to type
+      <code>/server &lt;name&gt;</code> after connecting, since there's only
+      one entry point on port 25565 regardless of which hostname they used
+      to get there.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Velocity reads the hostname the client actually connected with
+      (the same SNI-like info Minecraft's handshake packet sends) and can
+      map it straight to a backend server, no manual switching needed:
+    </p>
+    <pre><code>[forced-hosts]
+"survival.example.com" = ["survival"]
+"creative.example.com" = ["creative"]</code></pre>
+    <p>
+      With that in place, a player typing either domain lands directly on
+      the matching backend server. Both hostnames can share the exact same
+      IP and port — Velocity does the routing entirely at the application
+      layer, similar in spirit to how a reverse proxy like nginx picks a
+      backend by <code>Host</code> header.
+    </p>
+    <h2>Gotcha</h2>
+    <p>
+      A leftover inline <code>forced-hosts = {}</code> line earlier in the
+      same TOML file conflicts with a later <code>[forced-hosts]</code>
+      table — it's a duplicate key, and Velocity fails to parse the config
+      at all rather than just ignoring the empty one. Worth grepping for
+      the inline form before adding the table version to an existing
+      config.
+    </p>
+  </article>
+</main>
+</body>
+</html>
