@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: PowerShell's Out-File -Encoding utf8 silently adds a BOM</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>PowerShell's Out-File -Encoding utf8 silently adds a BOM</h2>
+    <p>
+      I had a small PowerShell helper script that wrote a JSON config file
+      for a Go service to read on startup. It looked completely
+      reasonable:
+    </p>
+    <pre><code>$json | Out-File -Encoding utf8 -FilePath config.json</code></pre>
+    <p>
+      The file opened fine in a text editor, the JSON was valid by eye,
+      and yet the Go service refused to parse it, failing on byte zero of
+      an otherwise well-formed file. No amount of re-checking the JSON
+      syntax explained it, because the problem wasn't the JSON — it was
+      three invisible bytes in front of it.
+    </p>
+    <h2>The cause</h2>
+    <p>
+      PowerShell's <code>-Encoding utf8</code> is <em>not</em> plain
+      UTF-8. It's UTF-8 with a byte-order mark (<code>EF BB BF</code>)
+      prepended, a legacy default that predates UTF-8 becoming the
+      de facto standard without a BOM. Most strict JSON parsers (including
+      Go's <code>encoding/json</code>) treat those leading bytes as
+      invalid input rather than silently skipping them, since a BOM isn't
+      valid JSON.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Skip <code>Out-File</code>/<code>Set-Content</code> for anything
+      that has to be read by a strict parser, and write the bytes
+      directly instead:
+    </p>
+    <pre><code>[System.IO.File]::WriteAllText("config.json", $json)</code></pre>
+    <p>
+      <code>WriteAllText</code> defaults to BOM-less UTF-8, which is what
+      every non-Windows-native tool actually expects. Worth checking for
+      any script that hands a generated JSON/YAML/.env file to something
+      outside the Windows/.NET world — the file will look correct in every
+      editor and still fail to parse.
+    </p>
+  </article>
+</main>
+</body>
+</html>
