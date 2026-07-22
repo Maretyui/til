@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: nginx doesn't dedupe repeated proxy_set_header in the same block</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>nginx doesn't dedupe repeated proxy_set_header in the same block</h2>
+    <p>
+      I was adding a custom location for a websocket endpoint behind a
+      reverse proxy and reused an existing snippet that already sets the
+      usual forwarding headers via an <code>include</code>:
+    </p>
+    <pre><code>location /ws {
+    include conf.d/include/proxy.conf;
+    proxy_set_header Host $host;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}</code></pre>
+    <p>
+      The included file already sets <code>Host</code> and the other
+      standard <code>X-Forwarded-*</code> headers. The request started
+      failing with a generic 400, and the backend logs showed a malformed
+      request with a duplicate <code>Host</code> header on the wire.
+    </p>
+    <h2>The cause</h2>
+    <p>
+      <code>proxy_set_header</code> directives don't get deduplicated
+      within the same context just because they share a name — nginx only
+      overrides a directive when a more specific nested context (e.g. a
+      location block overriding its parent server block) redefines it.
+      Two <code>proxy_set_header Host</code> lines in the exact same
+      block both fire, and nginx sends the header twice. Most clients
+      tolerate that for harmless headers, but a duplicated <code>Host</code>
+      header is invalid HTTP and gets rejected outright by some backends.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Only add headers the include doesn't already set. For a websocket
+      location that's just <code>Upgrade</code> and <code>Connection</code>
+      — drop the redundant <code>Host</code> line entirely:
+    </p>
+    <pre><code>location /ws {
+    include conf.d/include/proxy.conf;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+}</code></pre>
+  </article>
+</main>
+</body>
+</html>
