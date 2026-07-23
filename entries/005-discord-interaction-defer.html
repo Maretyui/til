@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord interactions expire in 3 seconds, defer before slow calls</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Discord interactions expire in 3 seconds, defer before slow calls</h2>
+    <p>
+      A Discord ticket bot's priority/close/reopen buttons started
+      failing intermittently in production with a generic error, but
+      only on channels that had just been renamed. The handler did a
+      channel rename, then a couple of permission checks, then finally
+      called <code>interaction.reply()</code>:
+    </p>
+    <pre><code>async function onPriorityChange(interaction, channel) {
+  await checkPermissions(interaction);
+  await channel.setName(`🔴-${channel.name}`);
+  await interaction.reply({ content: 'Priority updated.' });
+}</code></pre>
+    <p>
+      Discord gives a bot exactly 3 seconds to acknowledge an
+      interaction (a button click, slash command, etc.) before it
+      expires and any reply attempt fails with a 404 / "Unknown
+      interaction" (error code <code>10062</code>).
+    </p>
+    <h2>The cause</h2>
+    <p>
+      Channel renames are rate-limited to roughly 2 per 10 minutes per
+      channel. If a channel had already been renamed recently, the
+      Discord REST client silently queues the next rename request and
+      waits out the rate limit — which can easily blow past 3 seconds.
+      By the time <code>channel.setName()</code> resolves, the
+      interaction token is already dead, and the final
+      <code>interaction.reply()</code> 404s.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Acknowledge the interaction immediately, before any slow API
+      call, then edit that acknowledgement once the real work is done:
+    </p>
+    <pre><code>async function onPriorityChange(interaction, channel) {
+  await checkPermissions(interaction);
+  await interaction.deferReply();
+  await channel.setName(`🔴-${channel.name}`);
+  await interaction.editReply({ content: 'Priority updated.' });
+}</code></pre>
+    <p>
+      <code>deferReply()</code> shows a "thinking..." state and buys up
+      to 15 minutes to send the real response via
+      <code>editReply()</code>. As a rule of thumb: call
+      <code>deferReply()</code> as the very first thing in any handler
+      that touches the Discord API more than once before responding —
+      cheap handlers that reply immediately don't need it, but anything
+      doing a rename, a fetch, or a DB round-trip first should defer on
+      principle rather than hoping it stays under 3 seconds.
+    </p>
+  </article>
+</main>
+</body>
+</html>
