@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Fyne's Storage.Save() errors if the file doesn't exist yet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Fyne's Storage.Save() errors if the file doesn't exist yet</h2>
+    <p>
+      Porting a Go/Fyne desktop app's config persistence to Android, the
+      obvious approach was to keep using <code>os.UserHomeDir()</code> plus
+      a hand-built path like <code>.config/AppName/config.json</code>. On a
+      real device that resolved to <code>/sdcard</code>, which scoped
+      storage blocks apps from writing to directly — first run failed with
+      a generic "Failed to save config" and no useful detail.
+    </p>
+    <p>
+      The fix was to stop building paths by hand and use Fyne's own
+      cross-platform storage API instead, the same one <code>fyne.Preferences</code>
+      relies on internally:
+    </p>
+    <pre><code>func saveConfig(a fyne.App, data []byte) error {
+  w, err := a.Storage().Save("config.json")
+  if err != nil {
+    return err
+  }
+  defer w.Close()
+  _, err = w.Write(data)
+  return err
+}</code></pre>
+    <h2>The catch</h2>
+    <p>
+      <code>Storage.Save(name)</code> is documented as "save data to the
+      named document" — but on first run, that document doesn't exist yet,
+      and <code>Save()</code> returns <code>storage.ErrNotExists</code>
+      instead of creating it. It's an upsert-sounding name with
+      create-only-if-already-there behavior underneath.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Fall back to <code>Create(name)</code> whenever <code>Save()</code>
+      reports the file is missing, so the call behaves like a normal
+      upsert on every platform:
+    </p>
+    <pre><code>func saveConfig(a fyne.App, data []byte) error {
+  w, err := a.Storage().Save("config.json")
+  if errors.Is(err, storage.ErrNotExists) {
+    w, err = a.Storage().Create("config.json")
+  }
+  if err != nil {
+    return err
+  }
+  defer w.Close()
+  _, err = w.Write(data)
+  return err
+}</code></pre>
+    <p>
+      Desktop and Windows kept their existing raw-path implementations
+      unchanged (those genuinely worked fine); this storage-API path is
+      gated to the Android build only, since it's the one platform where
+      writing to an app-chosen filesystem path isn't an option at all.
+    </p>
+  </article>
+</main>
+</body>
+</html>
