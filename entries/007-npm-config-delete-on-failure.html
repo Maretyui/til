@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Nginx Proxy Manager deletes a proxy host's config if regeneration fails</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Nginx Proxy Manager deletes a proxy host's config if regeneration fails</h2>
+    <p>
+      After editing a proxy host in Nginx Proxy Manager's UI — nothing
+      exotic, just adding a custom location — the site it fronted started
+      throwing <code>ERR_SSL_UNRECOGNIZED_NAME_ALERT</code>. The proxy
+      host record in NPM's own UI still looked completely correct: right
+      domain, right SSL certificate, right forward target.
+    </p>
+    <h2>The cause</h2>
+    <p>
+      NPM keeps each proxy host as a generated nginx config file under
+      <code>/data/nginx/proxy_host/&lt;id&gt;.conf</code> inside its
+      container. Its internal <code>configure()</code> flow does roughly:
+    </p>
+    <pre><code>1. delete the existing &lt;id&gt;.conf
+2. render a new one from the current database record
+3. run `nginx -t` against it
+4. if the test fails, log the error to an internal `meta` field
+   (never surfaced in the UI) — and leave the file deleted</code></pre>
+    <p>
+      Step 4 is the trap: on a template-generation edge case, the new
+      config fails nginx's syntax test, and NPM does not fall back to
+      restoring the previous, working file. It just leaves the host with
+      no config on disk at all, while the database record — and the
+      admin UI reading from it — still shows a perfectly valid
+      configuration.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Since the database record is intact, the working config can be
+      hand-reconstructed from it and dropped straight into the
+      container, bypassing NPM's own broken regeneration path:
+    </p>
+    <pre><code># read the stored proxy host settings
+sqlite3 /opt/npm/data/database.sqlite \
+  "select * from proxy_host where id = 28;"
+
+# write proxy_host/28.conf by hand based on that record, then:
+docker cp 28.conf npm-app-1:/data/nginx/proxy_host/28.conf
+docker exec npm-app-1 nginx -t
+docker exec npm-app-1 nginx -s reload</code></pre>
+    <p>
+      Worth checking for this specific failure mode any time a proxy
+      host edit "saves fine" in NPM's UI but the site immediately starts
+      failing TLS — the UI honestly has no way to tell you the config
+      file behind it just vanished.
+    </p>
+  </article>
+</main>
+</body>
+</html>
