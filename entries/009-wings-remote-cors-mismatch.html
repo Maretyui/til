@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Pelican's Wings daemon derives its websocket CORS origin from its own config, not the node's</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Wings derives its websocket CORS origin from its own config, not the node's</h2>
+    <p>
+      Setting up Pelican (a game-server control panel) behind a reverse
+      proxy, the live console in the browser kept failing to connect —
+      the panel's server list, file manager, everything else worked, but
+      the console websocket silently 403'd with no useful message in the
+      browser devtools.
+    </p>
+    <p>
+      The panel's node settings (FQDN, scheme, "behind proxy" flag) were
+      all correct, and I'd regenerated Wings' config from the panel after
+      setting them, so I assumed the two were in sync. They weren't.
+    </p>
+    <h2>The actual mismatch</h2>
+    <p>
+      Wings (the daemon that actually runs the game server containers)
+      reads its own <code>/etc/pelican/config.yml</code>, and specifically
+      its <code>remote:</code> field, to decide what origin is allowed to
+      open a websocket connection to it. Regenerating the config from the
+      panel is supposed to fill this in automatically, but after a manual
+      edit earlier in the setup it had drifted to a plain
+      <code>http://</code> URL while the panel itself was serving over
+      <code>https://</code>:
+    </p>
+    <pre><code># wrong — doesn't match the public https origin the browser sends
+remote: http://games.example.com
+
+# correct
+remote: https://games.example.com</code></pre>
+    <p>
+      Since the browser builds the console's websocket URL from the page
+      it's actually loaded on (<code>wss://...</code> for an HTTPS page),
+      a scheme mismatch here is enough to fail Wings' own origin check —
+      and it fails silently, with nothing browser-side pointing at the
+      real cause.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Regenerate the node's config from the panel and double-check the
+      <code>remote:</code> line matches the panel's actual public URL —
+      scheme included — before assuming the problem is somewhere in the
+      reverse proxy:
+    </p>
+    <pre><code>php artisan p:node:configuration &lt;node-id&gt; > /etc/pelican/config.yml
+grep remote: /etc/pelican/config.yml
+systemctl restart wings</code></pre>
+  </article>
+</main>
+</body>
+</html>
