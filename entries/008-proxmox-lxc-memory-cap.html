@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: An LXC container's runaway process can freeze the whole Proxmox host</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>An LXC container's runaway process can freeze the whole Proxmox host</h2>
+    <p>
+      A player on one of my Minecraft servers built a carpet-based item
+      duplicator, and it worked a little too well — it started spawning a
+      huge number of item entities in one chunk. The server running that
+      world lives in a Proxmox LXC container, and within a few minutes
+      the container's memory usage ballooned way past what the world
+      normally needs.
+    </p>
+    <p>
+      What I didn't expect: it wasn't just that one container that froze.
+      The <em>entire physical host</em> locked up — every other guest on
+      the same machine (a reverse proxy, a database, a mail server, a
+      VPN hub) became unreachable at the same time, and it took two hard
+      power-cycles to bring things back.
+    </p>
+    <h2>Why an LXC is different from a VM here</h2>
+    <p>
+      A VM gets its own kernel and a hard memory ceiling enforced by the
+      hypervisor no matter what. An LXC container shares the host's
+      kernel directly — it's closer to a fenced-off set of processes than
+      a fully isolated machine. If a container's configured memory limit
+      is generous (or the host is memory-overcommitted across guests, as
+      mine was), a single process inside it going wild can still pressure
+      the host's real memory and IO enough to stall everything else,
+      LXC or not.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Right-size the memory limit on every guest so no single one can
+      eat a large fraction of the host's physical RAM, even under
+      overcommit:
+    </p>
+    <pre><code># Proxmox UI: guest -> Hardware -> Memory -> set a hard cap
+# or via CLI:
+pct set &lt;ctid&gt; -memory 16384</code></pre>
+    <p>
+      The underlying item pile in the Minecraft world itself is still
+      there — this only stops a repeat from taking the whole host down.
+      If that container starts crashing again, it should now crash on
+      its own (a contained Java heap OOM), not drag every other guest
+      down with it.
+    </p>
+  </article>
+</main>
+</body>
+</html>
