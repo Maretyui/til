@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Tailwind v4's spacing scale accepts decimals like w-4.5 with no bracket syntax needed</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Tailwind v4's spacing scale accepts decimals like <code>w-4.5</code> with no bracket syntax needed</h2>
+    <p>
+      Doing a pass over a portfolio site's contact section, I spotted
+      <code>className="w-4.5 h-4.5"</code> on an icon and
+      <code>className="w-4.3 h-4.3"</code> on another, right next to
+      normal integer classes like <code>text-3xl</code>. My first read was
+      "typo — someone meant <code>w-5</code> or forgot the bracket syntax
+      for an arbitrary value", so I went to fix it.
+    </p>
+    <h2>They weren't typos</h2>
+    <p>
+      In Tailwind v3, a non-integer utility like that genuinely wouldn't
+      exist — you'd need the arbitrary-value escape hatch,
+      <code>w-[1.125rem]</code>. Tailwind v4 changed how the whole spacing
+      scale works: instead of a fixed lookup table of named sizes, most
+      spacing-based utilities are generated from one CSS variable and a
+      multiplier:
+    </p>
+    <pre><code>/* v4's default spacing scale, roughly */
+--spacing: 0.25rem;
+.w-4  { width: calc(var(--spacing) * 4); }   /* 1rem   */
+.w-4\.5 { width: calc(var(--spacing) * 4.5); } /* 1.125rem */</code></pre>
+    <p>
+      Because it's a <code>calc()</code> multiplication rather than a
+      lookup table, any numeric value — including decimals — just works,
+      with no bracket syntax and no config changes. <code>w-4.5</code>
+      and <code>h-4.3</code> compile to real, valid classes.
+    </p>
+    <h2>Why this almost bit me</h2>
+    <p>
+      I'd nearly "fixed" perfectly valid, intentional sizing based on a
+      v3-era assumption baked into muscle memory. The one thing worth
+      checking before treating a fractional Tailwind class as a mistake:
+    </p>
+    <pre><code>grep tailwindcss package.json
+# "tailwindcss": "^4.x" → decimals on spacing utilities are real classes,
+# not arbitrary-value shorthand and not typos.</code></pre>
+  </article>
+</main>
+</body>
+</html>
