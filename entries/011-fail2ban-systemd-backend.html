@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: fail2ban's auto backend detection silently fails to find sshd logs on older versions</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>fail2ban's auto backend detection silently fails to find sshd logs on older versions</h2>
+    <p>
+      I was doing a pass of installing <code>fail2ban</code> across a handful
+      of hosts, all with the same <code>sshd</code> jail config that's worked
+      everywhere else: <code>bantime = 1h</code>, <code>findtime = 10m</code>,
+      <code>maxretry = 5</code>, drop it in <code>jail.local</code>, enable
+      and restart the service, done. On an Ubuntu box this really is that
+      simple. I assumed it'd be the same on a Debian-based Docker image
+      running an older fail2ban (1.0.2) and moved on without double-checking.
+    </p>
+    <h2>The jail was never actually running</h2>
+    <p>
+      It wasn't until I went looking for banned IPs days later —
+      <code>fail2ban-client status sshd</code> — that I noticed the jail
+      wasn't in the jail list at all. The service itself was up
+      (<code>systemctl status fail2ban</code> showed active/running, no
+      crash, no obvious error), it had just never started the one jail I
+      actually cared about. Digging through
+      <code>/var/log/fail2ban.log</code> turned up the real message, logged
+      once at startup and then never mentioned again:
+    </p>
+    <pre><code>fail2ban.filter [1]: WARNING Have not found any log file for sshd jail
+fail2ban.jail [1]: INFO   Jail 'sshd' is not started</code></pre>
+    <h2>Why the auto-detection missed it</h2>
+    <p>
+      fail2ban's default <code>backend = auto</code> tries several ways of
+      finding the log to tail for a given jail — a plain log file first
+      (<code>/var/log/auth.log</code> or similar), falling back to systemd's
+      journal if nothing matches. Newer fail2ban versions handle this
+      fallback correctly out of the box. On the older 1.0.2 build in this
+      image, the file-based detection didn't find anything (Debian's base
+      image logs sshd straight to the journal, no <code>/var/log/auth.log</code>
+      at all) and the journal fallback just... didn't kick in — the jail
+      quietly gave up instead of erroring loudly.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Set the backend explicitly instead of trusting auto-detection, right
+      in the jail's <code>jail.local</code> stanza:
+    </p>
+    <pre><code>[sshd]
+enabled = true
+backend = systemd
+bantime = 1h
+findtime = 10m
+maxretry = 5</code></pre>
+    <p>
+      Restarted the service and <code>fail2ban-client status sshd</code>
+      immediately showed the jail active and tailing real auth attempts.
+    </p>
+    <p>
+      The actual lesson has nothing to do with fail2ban specifically:
+      installing and enabling a security tool isn't the same as confirming
+      it's doing anything. "The service is running" and "the protection is
+      active" are different claims — checking <code>systemctl status</code>
+      told me the daemon was alive, not that the one jail I cared about was
+      ever watching a log. Worth a five-second <code>fail2ban-client status
+      &lt;jail&gt;</code> check right after any install, on any host, rather
+      than assuming a clean install implies working protection.
+    </p>
+  </article>
+</main>
+</body>
+</html>
