@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: ufw can scope a port to one source IP instead of opening it to the whole internet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>ufw can scope a port to one source IP instead of opening it to the whole internet</h2>
+    <p>
+      I needed to open a port on a box that's meant to only ever be reached
+      through a reverse proxy sitting in front of it — a dev-preview port
+      that a hostname's proxy config forwards to, nothing more. My first
+      instinct was the usual one-liner:
+    </p>
+    <pre><code>ufw allow 3000</code></pre>
+    <p>
+      Which works, in the sense that the proxy could now reach it. It also
+      means literally anyone on the internet can reach it directly on that
+      port, bypassing the proxy entirely — no TLS, no hostname routing,
+      whatever's bound there just sitting open. Fine for a moment, easy to
+      forget is still open later.
+    </p>
+    <h2>The narrower rule</h2>
+    <p>
+      <code>ufw</code> supports scoping a rule to a specific source, not
+      just a bare port number:
+    </p>
+    <pre><code>ufw allow from 192.168.178.28 to any port 3000 proto tcp</code></pre>
+    <p>
+      This only admits traffic whose source IP is the proxy box itself —
+      everyone else's connection attempt to port 3000 on this host gets
+      dropped before it reaches whatever's listening there. The proxy still
+      works exactly the same as before; the only thing that changes is who
+      else can reach the port directly.
+    </p>
+    <h2>Why it actually matters here</h2>
+    <p>
+      The whole point of routing something through a reverse proxy is
+      usually TLS termination plus hostname-based routing — but none of
+      that is actually enforced unless the backend port is also unreachable
+      by any other path. A blanket <code>ufw allow &lt;port&gt;</code> on a
+      "proxy-only" port quietly defeats that: an ad hoc test server bound to
+      it (even something as throwaway as
+      <code>python3 -m http.server 3000</code> for a five-minute file
+      handoff) is reachable by its raw IP:port from anywhere on the
+      internet the whole time it's up, with no auth, whether or not the
+      proxy hostname is even pointed at it.
+    </p>
+    <h2>The takeaway</h2>
+    <p>
+      For any port that's conceptually "only the proxy should ever hit
+      this directly," scope the ufw rule to the proxy's actual IP from the
+      start rather than opening it broadly and mentally filing it under
+      "protected by the proxy." The proxy isn't a firewall — the firewall
+      is.
+    </p>
+  </article>
+</main>
+</body>
+</html>
