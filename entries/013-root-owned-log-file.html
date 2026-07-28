@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a root-owned log file can make every later error look inexplicably generic</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a root-owned log file can make every later error look inexplicably generic</h2>
+    <p>
+      I was debugging a fresh install by SSHing in as <code>root</code> and
+      running a handful of admin CLI commands directly — the kind of thing
+      that normally runs under a dedicated service user (<code>www-data</code>,
+      in this case) via the web server, but felt harmless to run manually
+      once or twice while poking around.
+    </p>
+    <pre><code>ssh root@host
+cd /var/www/app && php artisan some:command</code></pre>
+    <p>
+      One of those commands happened to be the first thing that day to
+      touch the app's log file, so the framework created it fresh —
+      owned by <code>root:root</code>, since that's who ran the process.
+      Nothing about the command itself failed or printed a warning.
+    </p>
+    <h2>Where it actually bit</h2>
+    <p>
+      Later, a real request came in through <code>php-fpm</code>, running
+      as <code>www-data</code> as always, and hit an unrelated bug. The
+      framework's own exception handler tried to do its normal job —
+      write the exception to that day's log file — and couldn't, because
+      <code>www-data</code> has no write permission on a file owned by
+      <code>root:root</code>. The handler's attempt to log the *original*
+      exception then itself threw, and what actually reached the HTTP
+      response was a second, unrelated, near-content-free error
+      (something like a bare <code>UnexpectedValueException</code> with no
+      message) instead of anything describing the real problem.
+    </p>
+    <p>
+      From the outside this looked like the framework had started failing
+      for no reason, on every request, with an error too vague to act on —
+      when the actual root cause was a permissions mismatch on a log file
+      from an unrelated command run hours earlier.
+    </p>
+    <h2>The fix, and the habit</h2>
+    <pre><code>ls -la storage/logs/
+chown www-data:www-data storage/logs/laravel-*.log</code></pre>
+    <p>
+      Fixing the ownership immediately surfaced the real, original error
+      on the next request. The lasting habit: if an app's errors ever
+      start looking suspiciously generic or content-free right after some
+      manual maintenance, check log file ownership before doing anything
+      else — and prefer <code>sudo -u www-data php artisan ...</code>
+      over a bare root shell for one-off admin commands, so the log file
+      (if one gets created) is owned by the same user that'll need to
+      write to it later.
+    </p>
+  </article>
+</main>
+</body>
+</html>
