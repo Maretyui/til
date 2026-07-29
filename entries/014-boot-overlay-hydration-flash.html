@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a client-only boot overlay defaulting to hidden flashes the real page for one frame</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a client-only boot overlay defaulting to hidden flashes the real page for one frame</h2>
+    <p>
+      Building a splash/boot-sequence overlay for a static-export Next.js
+      site, the obvious-seeming approach was a <code>mounted</code> state
+      starting at <code>false</code>, flipped to <code>true</code> inside
+      a <code>useEffect</code> once the component confirmed it was running
+      in the browser:
+    </p>
+    <pre><code>const [visible, setVisible] = useState(false);
+
+useEffect(() =&gt; {
+  setVisible(true);
+}, []);
+
+if (!visible) return null;
+return &lt;BootOverlay /&gt;;</code></pre>
+    <p>
+      The assumption was that this overlay would just be the first thing
+      the user sees, since it's the first component to mount. Instead,
+      every page load showed a genuine flash of the real page underneath —
+      nav, hero content, everything — for a single visible frame before
+      the overlay snapped in on top of it.
+    </p>
+    <h2>Why it actually flashes</h2>
+    <p>
+      React requires the server-rendered markup and the very first client
+      render to match exactly, or it warns about a hydration mismatch.
+      Since <code>visible</code> starts <code>false</code> on both the
+      server pass and the first client paint, the overlay genuinely
+      renders <code>null</code> on both — there's no mismatch, but there's
+      also nothing hiding the page behind it yet. Only after that first
+      paint does the <code>useEffect</code> fire, flip the state, and
+      trigger a re-render that finally shows the overlay. Everything in
+      between — server HTML, hydration, first paint — has the real page
+      fully visible.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Invert the default so the overlay is visible from the start instead
+      of hidden — server render and first client paint then both show the
+      overlay, so there's still no mismatch, just nothing ever flashes.
+      Any browser-only check that might need to <em>skip</em> the overlay
+      (e.g. "already seen this session" via <code>sessionStorage</code>)
+      has to run in <code>useLayoutEffect</code> instead of
+      <code>useEffect</code>, since that's the one that fires
+      synchronously after the DOM is updated but before the browser
+      actually paints — the "hide it" decision lands before the user ever
+      sees a frame, in either direction:
+    </p>
+    <pre><code>const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+const [visible, setVisible] = useState(true);
+
+useIsomorphicLayoutEffect(() =&gt; {
+  if (sessionStorage.getItem("seenBoot")) {
+    setVisible(false);
+  } else {
+    sessionStorage.setItem("seenBoot", "1");
+  }
+}, []);</code></pre>
+    <p>
+      The isomorphic guard matters too — plain <code>useLayoutEffect</code>
+      on the server throws React's "useLayoutEffect does nothing on the
+      server" warning, so it needs the <code>typeof window</code> check to
+      fall back to <code>useEffect</code> during SSR without changing
+      behavior in the browser.
+    </p>
+  </article>
+</main>
+</body>
+</html>
