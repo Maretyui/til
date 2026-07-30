@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a settings-page field for TRUSTED_PROXIES doesn't mean it's actually wired up</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a settings-page field for TRUSTED_PROXIES doesn't mean it's actually wired up</h2>
+    <p>
+      A self-hosted Laravel panel sits behind a reverse proxy that
+      terminates TLS, and it ships with exactly the setting you'd expect
+      for that: an admin settings page field called "Trusted proxies",
+      plus a <code>TRUSTED_PROXIES</code> env var and a
+      <code>config/trustedproxy.php</code> file to hold it. Filling it in
+      with the proxy's LAN IP felt like the whole job.
+    </p>
+    <p>
+      It wasn't. A Livewire file upload (a server icon, using a signed
+      URL under the hood) started failing with a silent 401 - the
+      signature just didn't match. That's the classic symptom of a
+      Laravel app not trusting its proxy: without trusting the proxy's
+      forwarded headers, the app builds signed URLs against the wrong
+      scheme/host (plain HTTP instead of the real HTTPS the browser
+      actually used), so the signature it generates and the one it later
+      verifies never agree.
+    </p>
+    <h2>The setting existed. The code reading it didn't.</h2>
+    <p>
+      Grepping the actual application code turned up the real problem:
+      nothing in <code>bootstrap/app.php</code> ever called
+      Laravel's <code>trustProxies()</code>. The config file and the env
+      var existed, and the admin UI dutifully saved whatever was typed
+      into it - but nothing downstream ever read that value into the
+      framework's actual proxy-trust middleware. A config field can exist
+      as pure plumbing with no destination.
+    </p>
+    <pre><code>// bootstrap/app.php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware-&gt;trustProxies(
+        at: array_filter(explode(',', (string) env('TRUSTED_PROXIES', '')))
+    );
+})</code></pre>
+    <p>
+      Adding that one call - reading the same env var the settings page
+      already wrote to - fixed the signed URL mismatch immediately.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      When a symptom looks like "the app doesn't trust the proxy", don't
+      stop at confirming the relevant setting is filled in somewhere.
+      Grep for where that setting is actually consumed. A field in an
+      admin UI, a documented env var, even a dedicated config file are
+      all just evidence that someone <em>planned</em> to wire it up - not
+      proof that anyone finished the job.
+    </p>
+  </article>
+</main>
+</body>
+</html>

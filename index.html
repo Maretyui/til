@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/015-trusted-proxies-not-wired.html">
+        A settings-page field for TRUSTED_PROXIES doesn't mean it's actually wired up
+        <small>infra — a Laravel panel saved the setting but bootstrap/app.php never called trustProxies(), breaking signed URLs behind the reverse proxy</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/014-boot-overlay-hydration-flash.html">
         A client-only boot overlay defaulting to hidden flashes the real page for one frame
         <small>web dev — a mounted-state overlay starting false matches on server and first client paint, so nothing hides the page until the useEffect fires</small>
