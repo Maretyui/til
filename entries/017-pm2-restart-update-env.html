@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: pm2 restart keeps the environment from the first pm2 start, not the current shell</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>pm2 restart keeps the environment from the first pm2 start, not the current shell</h2>
+    <p>
+      A mail-sending SMTP password got rotated on the mail server. The
+      deploy script for the app using it exports the new value from
+      <code>.env</code>, rebuilds, then runs <code>pm2 restart app-name</code>
+      like every other deploy before it. The app kept failing to
+      authenticate with the old password anyway - after the rebuild, after
+      the restart, after triple-checking the <code>.env</code> file on
+      disk actually had the new value.
+    </p>
+    <h2>PM2 snapshots env at the first start, not at every restart</h2>
+    <p>
+      PM2's daemon captures the process environment once, at whatever
+      moment the app was first brought under PM2 (<code>pm2 start</code>
+      or an earlier deploy), and stores that snapshot internally. A plain
+      <code>pm2 restart app-name</code> respawns the process using
+      <em>that stored snapshot</em>, not the environment of the shell the
+      restart command was actually run from. Exporting a fresh value right
+      before the restart does nothing - PM2 never looks at the current
+      shell's environment on a bare restart.
+    </p>
+    <pre><code># does NOT pick up a freshly exported var
+export SMTP_PASS=new-value
+pm2 restart app-name
+
+# does
+export SMTP_PASS=new-value
+pm2 restart app-name --update-env</code></pre>
+    <p>
+      <code>--update-env</code> tells PM2 to re-capture the environment
+      from the process running the restart command and overwrite its
+      stored snapshot with it. Without that flag the restart is real - the
+      process does cycle - it's just still running on stale credentials
+      that look, from the outside, exactly like a caching problem
+      somewhere else entirely.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any deploy step that changes environment variables and then restarts
+      via PM2 needs <code>--update-env</code> on that restart, every time,
+      not just on the first deploy. It's easy to write the flag once,
+      copy the restart command into a different project's deploy recipe
+      later, and quietly drop it - the failure mode isn't "restart didn't
+      happen," it's "restart happened, but nothing actually changed,"
+      which sends debugging everywhere except the one line that mattered.
+    </p>
+  </article>
+</main>
+</body>
+</html>
