@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a fresh Postgres database is connectable by every role on the cluster unless you revoke it</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a fresh Postgres database is connectable by every role on the cluster unless you revoke it</h2>
+    <p>
+      A shared Postgres server hosts one database per app, each with its
+      own dedicated owning role - the kind of setup that looks isolated
+      at a glance because nobody hands out the other apps' passwords.
+      Doing a real security sweep of that server turned up something not
+      obvious from the role/ownership layout alone: any app's role could
+      still open a plain <code>psql -d other_apps_db</code> connection
+      using its own credentials, despite owning none of that database's
+      tables.
+    </p>
+    <h2>CREATE DATABASE grants CONNECT to PUBLIC automatically</h2>
+    <p>
+      Postgres has a pseudo-role called <code>PUBLIC</code> that every
+      login role implicitly belongs to, and by default a newly created
+      database grants that pseudo-role <code>CONNECT</code>. It's not a
+      misconfiguration anyone introduced - it's the out-of-the-box
+      behavior of plain <code>CREATE DATABASE</code>. Per-table grants
+      still apply once connected, so a stray role couldn't necessarily
+      <em>read</em> anything - but being able to connect at all is already
+      more surface than a "one database per app" setup is supposed to
+      allow, and it's an easy detail to never think to check because
+      nothing about the role-creation step calls it out.
+    </p>
+    <pre><code>-- close the gap per database
+REVOKE CONNECT ON DATABASE other_apps_db FROM PUBLIC;
+GRANT CONNECT ON DATABASE other_apps_db TO the_owning_role;</code></pre>
+    <p>
+      Worth checking alongside this: whether app roles were also handed
+      <code>CREATEDB</code> at some point (common if a role was originally
+      created as a quick "just make it a superuser-lite" shortcut) - that
+      privilege is cluster-wide too, letting a role spin up new databases
+      of its own regardless of which one it's meant to own.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      "Each app has its own database and role" sounds isolated but isn't,
+      by default - isolation is something you configure explicitly with
+      <code>REVOKE CONNECT ... FROM PUBLIC</code> per database, not
+      something you get for free just because the roles are separate.
+      Worth a one-time audit on any shared Postgres cluster instead of
+      assuming ownership boundaries imply connection boundaries.
+    </p>
+  </article>
+</main>
+</body>
+</html>

@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/018-postgres-public-connect-privilege.html">
+        A fresh Postgres database is connectable by every role on the cluster unless you revoke it
+        <small>infra — CREATE DATABASE grants CONNECT to PUBLIC by default, so "one database per app" isn't isolated until you revoke it explicitly</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/017-pm2-restart-update-env.html">
         pm2 restart keeps the environment from the first pm2 start, not the current shell
         <small>infra — a rotated SMTP password never took effect until --update-env forced PM2 to re-capture the env on restart</small>
