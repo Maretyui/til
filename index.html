@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/020-useeffect-inline-object-dependency.html">
+        An inline object in a useEffect dependency array reruns the effect every render
+        <small>web dev — useEffect compares dependencies by reference (Object.is), so a literal {a, b} built in the render body never matches the previous one</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/019-cron-minimal-path.html">
         cron runs jobs with a stripped-down PATH, not your login shell's
         <small>infra — a script that "works when I run it" failed under cron because cron never sources .bashrc/.profile at all</small>

@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: an inline object in a useEffect dependency array reruns the effect every render</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>an inline object in a useEffect dependency array reruns the effect every render</h2>
+    <p>
+      A component fetched data in a <code>useEffect</code> keyed off a
+      filters object built from a couple of pieces of local state
+      (<code>{ category, sortOrder }</code>). The network tab told the
+      real story: the same request, fired on every single render, not
+      just when <code>category</code> or <code>sortOrder</code> actually
+      changed. No state update loop, no obvious re-render trigger in the
+      component itself - the fetch was just never settling.
+    </p>
+    <h2>React compares dependencies by reference, not by value</h2>
+    <p>
+      <code>useEffect</code>'s dependency array is checked with
+      <code>Object.is</code> between renders - a shallow reference
+      comparison, not a deep-equality check. An object or array literal
+      written directly inside the render body (<code>{ category,
+      sortOrder }</code>, or <code>[a, b]</code>) is a brand-new object
+      every single render, even when every field inside it holds the
+      exact same value as last time. <code>Object.is</code> sees two
+      different references and considers the dependency "changed," so the
+      effect reruns - which, if the effect itself triggers a state update
+      (like storing fetched data), can also cascade into a render loop.
+    </p>
+    <pre><code>// re-runs every render: {category, sortOrder} is a new object each time
+useEffect(() => {
+  fetchResults({ category, sortOrder });
+}, [{ category, sortOrder }]);
+
+// fine: primitives compare by value, not by reference
+useEffect(() => {
+  fetchResults({ category, sortOrder });
+}, [category, sortOrder]);
+
+// also fine if the object itself needs to be the dependency:
+// memoize it so the reference is stable across renders
+const filters = useMemo(() => ({ category, sortOrder }), [category, sortOrder]);
+useEffect(() => {
+  fetchResults(filters);
+}, [filters]);</code></pre>
+    <p>
+      The same trap applies to inline arrow functions and arrays passed
+      as dependencies, and to any object/array a parent passes down as a
+      prop if that parent recreates it inline on every render too - the
+      fix is the same either way, either depend on the underlying
+      primitives directly or wrap the composite value in
+      <code>useMemo</code>/<code>useCallback</code> so its reference is
+      stable between renders that don't actually change its contents.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      A dependency array full of primitives is the safest default -
+      React's comparison is reference-based, so anything that creates a
+      new object, array, or function literal inline in the render body
+      needs to be memoized before it's trustworthy as a dependency.
+      "The effect keeps firing for no reason" is almost always this, not
+      a state-management bug somewhere else in the component.
+    </p>
+  </article>
+</main>
+</body>
+</html>
