@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: cron runs jobs with a stripped-down PATH, not your login shell's</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>cron runs jobs with a stripped-down PATH, not your login shell's</h2>
+    <p>
+      A shell script worked perfectly every time it was run by hand, then
+      failed the moment it was dropped into a crontab - not with a
+      permissions error or a stack trace, just a bare
+      <code>command not found</code> for a binary that was unquestionably
+      installed and on <code>PATH</code> in every interactive shell that
+      touched the box.
+    </p>
+    <h2>cron doesn't source .bashrc/.profile at all</h2>
+    <p>
+      An interactive login shell builds its <code>PATH</code> by sourcing
+      a chain of files - <code>/etc/profile</code>,
+      <code>~/.bash_profile</code>, <code>~/.bashrc</code>, and whatever
+      version manager (nvm, pyenv, rbenv) or package manager appended to
+      it along the way. Cron never runs any of that. Each job executes
+      under <code>/bin/sh</code> with a minimal, hardcoded environment -
+      usually just <code>PATH=/usr/bin:/bin</code> - so anything installed
+      into a user-local bin directory, a language version manager's shims,
+      or even <code>/usr/local/bin</code> on some distros simply isn't
+      found, even though <code>which</code> in a real terminal finds it
+      instantly.
+    </p>
+    <pre><code># crontab -e
+* * * * * some-tool --flag        # fails: "some-tool: command not found"
+
+# two ways to actually fix it
+* * * * * /full/path/to/some-tool --flag
+PATH=/usr/local/bin:/usr/bin:/bin
+* * * * * some-tool --flag</code></pre>
+    <p>
+      The safer of the two fixes is the absolute path - it doesn't depend
+      on remembering to keep a hand-maintained <code>PATH=</code> line in
+      sync with wherever tools actually get installed later. Worth
+      checking with <code>type -a some-tool</code> or
+      <code>command -v some-tool</code> from a plain <code>sh</code>
+      invocation (not an interactive <code>bash</code>) to see what a cron
+      job would actually resolve, before assuming the script itself is
+      broken.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      A script that "works when I run it" but fails under cron almost
+      always means the environment differs, not the script - cron's
+      minimal, non-login, non-interactive shell is close to the least
+      environment a command can run in on the whole system, and it's easy
+      to forget that gap exists until a job silently stops doing anything
+      at 4am with nothing but an exit code to show for it.
+    </p>
+  </article>
+</main>
+</body>
+</html>

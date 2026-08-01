@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/019-cron-minimal-path.html">
+        cron runs jobs with a stripped-down PATH, not your login shell's
+        <small>infra — a script that "works when I run it" failed under cron because cron never sources .bashrc/.profile at all</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/018-postgres-public-connect-privilege.html">
         A fresh Postgres database is connectable by every role on the cluster unless you revoke it
         <small>infra — CREATE DATABASE grants CONNECT to PUBLIC by default, so "one database per app" isn't isolated until you revoke it explicitly</small>
