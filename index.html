@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/021-ufw-interface-vs-cidr-precedence.html">
+        ufw's CIDR-scoped allow and an unscoped deny for the same port don't behave like rule order implies
+        <small>infra — an allow-from-CIDR + deny-all pair for SSH locked out both trusted and untrusted clients; scoping both rules by interface instead fixed it</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/020-useeffect-inline-object-dependency.html">
         An inline object in a useEffect dependency array reruns the effect every render
         <small>web dev — useEffect compares dependencies by reference (Object.is), so a literal {a, b} built in the render body never matches the previous one</small>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: ufw's CIDR-scoped allow and an unscoped deny for the same port don't behave like rule order implies</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>ufw's CIDR-scoped allow and an unscoped deny for the same port don't behave like rule order implies</h2>
+    <p>
+      Trying to restrict SSH to just a VPN mesh range, the plan looked
+      simple: allow port 22 from the mesh CIDR, then deny port 22 from
+      everywhere else, added in that order so the more specific rule
+      would win.
+    </p>
+    <pre><code>ufw allow from 100.64.0.0/10 to any port 22
+ufw deny to any port 22</code></pre>
+    <p>
+      This looked correct and matched a pattern that had already worked
+      fine on another host. On this particular box it broke SSH
+      completely — not just for LAN clients that were supposed to be
+      blocked, but for the mesh clients that were supposed to stay
+      allowed too. No console access meant recovering it needed the
+      hypervisor's own virtual console, not SSH.
+    </p>
+    <h2>The fix: match on interface, not source CIDR</h2>
+    <p>
+      Instead of scoping the allow rule by source address, scope both
+      rules by which network interface the packet actually arrives on:
+    </p>
+    <pre><code>ufw allow in on tailscale0 to any port 22 proto tcp
+ufw deny in on eth0 to any port 22 proto tcp</code></pre>
+    <p>
+      Interface-scoped rules apply cleanly regardless of rule ordering
+      quirks between an unscoped deny and a CIDR-scoped allow for the
+      same port — each rule only ever evaluates traffic on its own named
+      interface, so there's no shared/ambiguous rule to reconcile in the
+      first place.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      When a firewall rule pair needs "allow from trusted network, deny
+      from everything else" on the exact same port, prefer interface
+      matching (<code>in on &lt;iface&gt;</code>) over CIDR matching if
+      the trusted network already maps to its own interface (a VPN mesh,
+      a Docker bridge, a VLAN). It sidesteps a whole class of
+      allow/deny-precedence surprises that CIDR-only rules can hit —
+      worth testing from a second connection before closing the one
+      you're currently using either way.
+    </p>
+  </article>
+</main>
+</body>
+</html>
