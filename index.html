@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/022-rspamd-spoofed-unauth-forwarding.html">
+        Rspamd silently drops internal relay mail that claims a local domain in From: without SASL auth
+        <small>infra — a mailing list's redistributed copies vanished with no bounce; fixed by allowlisting the relay's source IP in Rspamd's forwarding-host map</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/021-ufw-interface-vs-cidr-precedence.html">
         ufw's CIDR-scoped allow and an unscoped deny for the same port don't behave like rule order implies
         <small>infra — an allow-from-CIDR + deny-all pair for SSH locked out both trusted and untrusted clients; scoping both rules by interface instead fixed it</small>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Rspamd silently drops internal relay mail that claims a local domain in From: without SASL auth</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Rspamd silently drops internal relay mail that claims a local domain in From: without SASL auth</h2>
+    <p>
+      A mailing list had been quietly broken since the day it was set
+      up: mail sent to the list address reached the list manager fine
+      (Postfix logged a clean <code>status=sent</code> handoff), but
+      none of the redistributed copies ever made it back out to
+      subscribers. No bounce, no error visible anywhere from the
+      sender's side — it just looked like "sometimes people don't get
+      list mail."
+    </p>
+    <h2>The real cause: an anti-spoofing rule doesn't know about your own relay</h2>
+    <p>
+      Rspamd's spam-filtering layer runs a composite rule
+      (<code>SPOOFED_UNAUTH</code>) that fires whenever a message's
+      <code>From:</code>/envelope-from claims a locally-hosted domain
+      but the connection isn't SASL-authenticated — a reasonable
+      anti-spoofing default for mail arriving from the open internet.
+      The problem: the list manager relays redistributed copies back
+      through the same mail server internally, unauthenticated, and its
+      <code>From:</code> legitimately uses the local domain. Rspamd
+      couldn't tell that apart from an actual spoof attempt, scored it
+      well past the reject threshold, and silently dropped every copy.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      The mail stack (Mailcow/Rspamd in this case) has its own
+      allowlist specifically for this situation — internal services
+      that are allowed to relay mail claiming a local domain without
+      SASL auth, keyed by source IP:
+    </p>
+    <pre><code>redis-cli -a "$REDISPASS" HSET WHITELISTED_FWD_HOST \
+  172.22.1.5/32 my-internal-relay-service</code></pre>
+    <p>
+      No Rspamd restart needed — the map is read live on every message.
+      Verified before/after with Rspamd's own test tool against a
+      sample message and source IP:
+    </p>
+    <pre><code>rspamc --mime --from list-bounces@example.com --ip 172.22.1.5 symbols</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any internal service that relays or redistributes mail on a mail
+      server's behalf — a mailing list manager, an internal forwarder,
+      a monitoring system emailing "from" the domain it's hosted
+      under — needs to be explicitly allowlisted for unauthenticated
+      local-domain relay, or a spoofing-prevention rule that's
+      completely correct for internet-facing mail will silently eat
+      every message it sends, with no bounce or error surfaced anywhere
+      to explain why.
+    </p>
+  </article>
+</main>
+</body>
+</html>
