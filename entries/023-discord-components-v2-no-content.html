@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord Components V2 messages can't carry a top-level content field</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Discord Components V2 messages can't carry a top-level content field</h2>
+    <p>
+      Rebuilding a ticket bot's panel/ticket cards with Discord's newer
+      Components V2 message flag (full-width layout components instead
+      of classic embeds) meant swapping every <code>reply()</code>/
+      <code>send()</code> call over to a <code>components</code> array
+      with the <code>IsComponentsV2</code> message flag set. One thing
+      broke immediately: pinging the ticket creator or the staff role
+      when a new ticket opened.
+    </p>
+    <h2>The problem</h2>
+    <p>
+      A classic embed-based message can set both <code>content</code>
+      (for the ping/mention text) and <code>embeds</code> in the same
+      call — Discord renders the plain-text content above the embed.
+      Components V2 messages don't work that way: once the
+      <code>IsComponentsV2</code> flag is set, Discord silently ignores
+      (or in some client versions, rejects) a top-level
+      <code>content</code> field entirely. The mention text just never
+      shows up, with no error surfaced — the message sends fine, it's
+      just missing the ping.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Send the mention as its own ordinary plain-text message first,
+      then send the Components V2 card as a separate message right
+      after it:
+    </p>
+    <pre><code>await channel.send({ content: `&lt;@${userId}&gt; &lt;@&amp;${staffRoleId}&gt;` });
+await channel.send({
+  flags: MessageFlags.IsComponentsV2,
+  components: [ticketCard],
+});</code></pre>
+    <p>
+      Two messages instead of one, but it's the only reliable way to
+      get both a real ping notification and the full-width card layout
+      in the same flow.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Components V2 isn't just "embeds with new layout blocks" — it's
+      a genuinely different message shape with its own constraints.
+      Anything that assumed the classic
+      <code>content</code> + <code>embeds</code> combo (pings,
+      plain-text prefixes, anything outside the component tree) needs
+      to move to a separate message instead of silently breaking.
+    </p>
+  </article>
+</main>
+</body>
+</html>
