@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/024-rsync-delete-untracked-uploads.html">
+        rsync --delete removes production files that were never in the local checkout
+        <small>infra — a deploy script's --delete flag wiped real user-uploaded files because their folder wasn't in the exclude list</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/023-discord-components-v2-no-content.html">
         Discord Components V2 messages can't carry a top-level content field
         <small>Discord bots — a ping/mention text silently disappeared after switching to Components V2 cards; fixed by sending the mention as its own plain message first</small>

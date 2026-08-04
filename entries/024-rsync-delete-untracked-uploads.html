@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: rsync --delete removes production files that were never in the local checkout</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>rsync --delete removes production files that were never in the local checkout</h2>
+    <p>
+      A normal deploy for a Next.js app: rsync the local git checkout up
+      to the server with <code>--delete</code> so stale build artifacts
+      and removed files don't linger, then rebuild and restart.
+    </p>
+    <pre><code>rsync -avz --delete --exclude='.git' --exclude='node_modules' \
+  --exclude='.next' . user@host:/var/www/app/</code></pre>
+    <p>
+      That app also had a small feature that let admins upload real
+      files at runtime — PDFs, in this case — saved into a folder inside
+      the project directory. Those files only ever existed on the
+      server; they were never part of the git repo and never showed up
+      in a local checkout at all.
+    </p>
+    <h2>Where it actually bit</h2>
+    <p>
+      <code>--delete</code> means "make the destination match the
+      source exactly" — anything on the server that isn't present
+      locally gets removed, no exceptions unless explicitly excluded.
+      The uploads folder wasn't in the exclude list, so a routine
+      content-only deploy quietly deleted every real, previously
+      uploaded file on the very first sync — including one that had
+      been uploaded that same day. The database row referencing it
+      survived (the row lives in Postgres, untouched by rsync), so the
+      app still linked to a file that no longer existed on disk.
+    </p>
+    <h2>The fix</h2>
+    <pre><code>rsync -avz --delete --exclude='.git' --exclude='node_modules' \
+  --exclude='.next' --exclude='storage/uploads/' \
+  . user@host:/var/www/app/</code></pre>
+    <p>
+      Any directory that holds real, server-only, runtime-generated
+      state — user uploads, session files, anything not reproducible
+      from the git history — needs its own explicit
+      <code>--exclude</code>, the same way <code>node_modules</code> and
+      build output already get excluded as a matter of habit.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>--delete</code> doesn't know or care *why* a file exists
+      only on the destination — a stale build artifact and a genuine
+      user upload look identical to it. Before ever adding
+      <code>--delete</code> to a new deploy script, walk the actual
+      destination directory first and list every path that can contain
+      real server-side state, not just the ones that come to mind —
+      once one gets missed, the loss happens on the very next deploy,
+      silently, with no confirmation prompt in between.
+    </p>
+  </article>
+</main>
+</body>
+</html>
