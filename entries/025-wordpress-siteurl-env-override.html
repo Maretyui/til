@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a docker-compose WP_SITEURL constant silently overrides wp-cli option changes</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a docker-compose WP_SITEURL constant silently overrides wp-cli option changes</h2>
+    <p>
+      Standing up a headless WordPress container behind a reverse proxy,
+      the site's URL needed to change from the container's default to
+      the real dev hostname. The obvious move: fix it with wp-cli.
+    </p>
+    <pre><code>wp option update siteurl 'https://dev.example.com'
+wp option update home 'https://dev.example.com'</code></pre>
+    <p>
+      <code>wp option get siteurl</code> immediately echoed back the new
+      value, so it looked like it had worked. Every actual page load
+      still generated links pointing at the old default host, as if the
+      change had never happened at all.
+    </p>
+    <h2>Where it actually bit</h2>
+    <p>
+      The compose file's <code>WORDPRESS_CONFIG_EXTRA</code> environment
+      variable already had <code>define('WP_SITEURL', ...)</code> and
+      <code>define('WP_HOME', ...)</code> baked in from the initial
+      scaffold. In WordPress, a <code>define()</code>'d constant always
+      wins over the same-named row in the <code>wp_options</code> table
+      — and wp-cli's own <code>option get</code> reads back the
+      *effective* value (the constant), not the row it just wrote. So
+      the update genuinely succeeded at the database level, and wp-cli's
+      own confirmation was completely accurate — it just wasn't telling
+      the whole story, since the constant silently overrides it for
+      everything that actually renders a page.
+    </p>
+    <h2>The fix</h2>
+    <pre><code># in docker-compose.yml
+environment:
+  WORDPRESS_CONFIG_EXTRA: |
+    define('WP_SITEURL', 'https://dev.example.com');
+    define('WP_HOME', 'https://dev.example.com');</code></pre>
+    <p>
+      Editing the actual source of truth and recreating the container
+      (a restart alone doesn't re-read the compose file's environment
+      block) fixed it for real — after that, both the constant and the
+      option row agreed, and pages started linking to the right host.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      If a WordPress setting seems "stuck" despite wp-cli confirming the
+      update took, check for a <code>define()</code>'d constant of the
+      same name before assuming the database write silently failed —
+      <code>wp_SITEURL</code>/<code>WP_HOME</code> are the classic
+      examples, but the same constant-wins-over-option rule applies to
+      anything else a scaffold or hosting config defines up front.
+    </p>
+  </article>
+</main>
+</body>
+</html>
