@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/026-turbopack-theme-initial-panic.html">
+        A stray --radius-*: initial; in a Tailwind v4 @theme block crashes Turbopack's dev server
+        <small>web dev — a Rust-level "every task must have a task type" panic surfaced as an unrelated component-handler 500; removing the CSS reset line fixed it, no cache clear needed</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/025-wordpress-siteurl-env-override.html">
         A docker-compose WP_SITEURL constant silently overrides wp-cli option changes
         <small>web dev — wp option update siteurl looked like it worked, but a define() in WORDPRESS_CONFIG_EXTRA always wins over the database row</small>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a stray --radius-*: initial; in a Tailwind v4 @theme block crashes Turbopack's dev server</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>a stray --radius-*: initial; in a Tailwind v4 @theme block crashes Turbopack's dev server</h2>
+    <p>
+      Mid-way through a design pass on a Next.js 16 + Tailwind v4 project,
+      the dev server (Turbopack) started hard-crashing on every single
+      request — not a normal Next.js error overlay, a full process-level
+      panic in the Rust compiler itself:
+    </p>
+    <pre><code>turbo-tasks-backend panic: "Every task must have a task type"</code></pre>
+    <p>
+      Once the panic happened, every subsequent page load 500'd with a
+      completely unrelated-looking error from the Next.js side:
+    </p>
+    <pre><code>TypeError: components.ComponentMod.handler is not a function</code></pre>
+    <p>
+      That second error is what actually showed up in the browser, which
+      sent the first debugging instinct down the wrong path entirely —
+      it looks like a routing/module-resolution bug, not a CSS problem.
+    </p>
+    <h2>Where it actually came from</h2>
+    <p>
+      The real cause was a single line added to <code>globals.css</code>'s
+      Tailwind v4 <code>@theme inline</code> block while trying to reset a
+      custom radius token:
+    </p>
+    <pre><code>@theme inline {
+  --radius-*: initial;
+}</code></pre>
+    <p>
+      That's valid-looking Tailwind v4 theme syntax on paper (the
+      wildcard-reset pattern exists for other namespaces), but something
+      about it — combined with how Turbopack's incremental task graph
+      caches theme-derived CSS — reliably tripped the "every task must
+      have a task type" invariant inside <code>turbo-tasks-backend</code>.
+      Clearing <code>.next</code> did not help, which was the first
+      strong hint the cache itself wasn't the problem.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Just deleting that one line fixed it immediately — no cache clear,
+      no dev server restart even needed beyond the automatic Turbopack
+      recompile that followed the file save.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      If a Turbopack dev server starts panicking or every route starts
+      500ing with a generic, unrelated-looking module error right after
+      editing <code>globals.css</code> or an <code>@theme</code> block,
+      suspect the CSS edit itself before chasing routing/module code —
+      and don't waste time on <code>.next</code> cache clears first, since
+      this class of bug isn't cache state, it's the compiler choking on
+      the source.
+    </p>
+  </article>
+</main>
+</body>
+</html>
