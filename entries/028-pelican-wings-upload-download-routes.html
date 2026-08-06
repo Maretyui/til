@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Pelican's file upload/download aren't under /api/servers like everything else</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Pelican's file upload/download aren't under /api/servers like everything else</h2>
+    <p>
+      After putting a reverse proxy in front of Pelican Panel + Wings, the
+      console, power actions, and stats all worked fine through a single
+      forwarded location for <code>/api/servers</code> — but the Files
+      tab's upload and download buttons both just 404'd, with nothing
+      obviously wrong in the panel's own config.
+    </p>
+    <h2>Wings has its own separate top-level routes for file transfer</h2>
+    <p>
+      Everything else the browser needs from Wings directly (console
+      websocket, live resource stats) really does live under
+      <code>/api/servers/&lt;uuid&gt;/...</code>, which made it reasonable
+      to assume one proxy location covering that prefix would be enough.
+      It isn't — file upload and download use their own separate top-level
+      paths instead:
+    </p>
+    <pre><code>/upload/file
+/download/file
+/download/backup</code></pre>
+    <p>
+      Those never match a <code>/api/servers</code> prefix rule, so
+      without their own explicit proxy locations pointing at Wings, they
+      just 404 at the reverse proxy before ever reaching the daemon.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Add dedicated proxy locations for <code>/upload</code> and
+      <code>/download</code> (not just <code>/api/servers</code>) pointed
+      at the same Wings backend. If Wings ever adds more browser-facing
+      endpoints, checking its own binary for other top-level route
+      prefixes settles it faster than trial and error:
+    </p>
+    <pre><code>strings /usr/local/bin/wings | grep -iE '"/upload|/download'</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Don't assume a single API-prefix proxy rule covers everything a
+      daemon exposes to the browser just because most of it does. Treat
+      "the console works" and "file transfer works" as two separate
+      things to verify — they can hit completely different route
+      prefixes on the same backend.
+    </p>
+  </article>
+</main>
+</body>
+</html>

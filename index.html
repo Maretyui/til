@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/028-pelican-wings-upload-download-routes.html">
+        Pelican's file upload/download aren't under /api/servers like everything else
+        <small>infra — Wings serves file transfer from its own top-level /upload and /download paths, which a single /api/servers proxy rule silently misses</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/027-pm2-update-env-ecosystem-config.html">
         pm2 restart --update-env doesn't always re-read ecosystem.config.js
         <small>infra — a DATABASE_URL fix on disk never reached the running process; only pm2 delete + pm2 start from the config file rebuilt it correctly</small>
