@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/027-pm2-update-env-ecosystem-config.html">
+        pm2 restart --update-env doesn't always re-read ecosystem.config.js
+        <small>infra — a DATABASE_URL fix on disk never reached the running process; only pm2 delete + pm2 start from the config file rebuilt it correctly</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/026-turbopack-theme-initial-panic.html">
         A stray --radius-*: initial; in a Tailwind v4 @theme block crashes Turbopack's dev server
         <small>web dev — a Rust-level "every task must have a task type" panic surfaced as an unrelated component-handler 500; removing the CSS reset line fixed it, no cache clear needed</small>

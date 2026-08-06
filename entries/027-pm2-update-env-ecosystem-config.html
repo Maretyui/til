@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: pm2 restart --update-env doesn't always re-read ecosystem.config.js</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>pm2 restart --update-env doesn't always re-read ecosystem.config.js</h2>
+    <p>
+      A backend API's <code>DATABASE_URL</code> pointed at a stale LAN IP
+      inside <code>ecosystem.config.js</code>'s <code>env</code> block —
+      fixed on disk, then deployed the usual way:
+    </p>
+    <pre><code>pm2 restart api-name --update-env</code></pre>
+    <p>
+      That flag exists specifically to force PM2 to re-capture the
+      environment instead of reusing whatever it snapshotted at the first
+      <code>pm2 start</code> — the known fix for the more common version of
+      this problem. It didn't work here. Every authenticated request still
+      hung for minutes against the old IP, even though unauthenticated
+      requests and raw queries straight against the database both looked
+      completely healthy — which is what made this take so long to pin
+      down: the fast-failing, easy-to-check paths weren't the ones that
+      were actually broken.
+    </p>
+    <h2>--update-env refreshes PM2's env, not the config file behind it</h2>
+    <p>
+      <code>--update-env</code> tells PM2 to re-read the environment
+      it already has associated with that process entry — it does not
+      re-parse <code>ecosystem.config.js</code> and re-derive a new env
+      block from it. If the process was originally started from that file,
+      PM2's internal process metadata can still be carrying values from
+      whenever it was first started, and a name/id-based restart — flagged
+      or not — reapplies that cached metadata rather than the file's
+      current contents.
+    </p>
+    <h2>The actual fix</h2>
+    <p>
+      Delete the process entry and start it fresh directly from the config
+      file, so PM2 has no choice but to build its metadata from what's on
+      disk right now:
+    </p>
+    <pre><code>pm2 delete api-name
+pm2 start ecosystem.config.js
+pm2 save</code></pre>
+    <p>
+      Verified with a real signed, authenticated request end-to-end
+      (44ms, not two minutes) before considering it fixed.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      For any app managed via an <code>ecosystem.config.js</code>, don't
+      trust <code>pm2 restart</code> — flagged with <code>--update-env</code>
+      or not — to pick up a config file change. Only <code>pm2 delete</code>
+      followed by <code>pm2 start ecosystem.config.js</code> reliably
+      rebuilds the process from what's actually on disk. And when
+      debugging something that "sometimes" fails, prefer testing the real,
+      fully authenticated code path over adjacent-looking fast checks —
+      they can pass for entirely unrelated reasons and send you down the
+      wrong trail for hours.
+    </p>
+  </article>
+</main>
+</body>
+</html>
