@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Nginx Proxy Manager can silently delete a working config on save</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Nginx Proxy Manager can silently delete a working config on save</h2>
+    <p>
+      Edited an existing, working proxy host in Nginx Proxy Manager's
+      admin UI — just adding a custom location, nothing exotic. Saved it,
+      and the site immediately started failing TLS handshakes with
+      <code>ERR_SSL_UNRECOGNIZED_NAME_ALERT</code>. The proxy host record
+      in NPM's own UI still showed every setting correctly; nothing in
+      the database looked wrong at all.
+    </p>
+    <h2>NPM deletes the old file before it knows the new one is valid</h2>
+    <p>
+      NPM's save flow regenerates the host's nginx config file from
+      scratch on every edit. Its actual sequence is: delete the existing
+      <code>.conf</code> file, write a new one from the updated database
+      record, then test it with nginx's own config check. If that test
+      fails, NPM does <em>not</em> restore the previous working file — it
+      just leaves the file deleted and logs the failure to an internal
+      metadata field that never surfaces anywhere in the UI. From nginx's
+      perspective there's simply no server block left for that
+      hostname's SNI at all, which is exactly what produces an
+      "unrecognized name" TLS error instead of a more obviously
+      config-related one.
+    </p>
+    <h2>Confirming it</h2>
+    <p>
+      Checked directly inside the NPM container:
+    </p>
+    <pre><code>docker exec npm-app-1 ls /data/nginx/proxy_host/</code></pre>
+    <p>
+      The file for that host's ID was genuinely missing, even though the
+      UI's edit form still rendered every field as if it were live.
+    </p>
+    <h2>The fix</h2>
+    <p>
+      Rebuilt the config file by hand from the database record (NPM's
+      SQLite file, mounted on the host) and dropped it straight into the
+      container, then verified and reloaded manually:
+    </p>
+    <pre><code>docker cp fixed-host.conf npm-app-1:/data/nginx/proxy_host/28.conf
+docker exec npm-app-1 nginx -t
+docker exec npm-app-1 nginx -s reload</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A proxy host that "looks correct" in NPM's admin UI after a save
+      isn't proof the underlying nginx config actually exists — the UI
+      reflects the database, not the generated file on disk, and NPM's
+      own failure-recovery path silently leaves nothing behind instead of
+      restoring the last-known-good config. If a host starts failing TLS
+      right after an edit, check for the actual <code>.conf</code> file
+      inside the container before assuming it's a certificate or DNS
+      problem.
+    </p>
+  </article>
+</main>
+</body>
+</html>
