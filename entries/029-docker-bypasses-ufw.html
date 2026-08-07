@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Docker's iptables rules bypass ufw port filtering entirely</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Docker's iptables rules bypass ufw port filtering entirely</h2>
+    <p>
+      Set up a container with <code>docker run -p 8085:80 ...</code> and
+      wanted it reachable only from one internal network, not the whole
+      LAN. The instinctive fix was the usual one for any other service on
+      the host:
+    </p>
+    <pre><code>ufw deny in on eth0 to any port 8085</code></pre>
+    <p>
+      That rule looked correct in <code>ufw status</code>, and it works
+      perfectly for anything ufw actually mediates. It did nothing here —
+      the container stayed reachable from the LAN interface regardless.
+    </p>
+    <h2>Docker manages its own iptables chains, ahead of ufw's</h2>
+    <p>
+      Docker's default networking inserts its own <code>DOCKER</code> and
+      <code>DOCKER-USER</code> chains directly into iptables and wires
+      published ports through DNAT rules in the <code>nat</code> table.
+      Those rules get evaluated before ufw's own chain gets a say — from
+      iptables' point of view, Docker's port-forwarding rule matches
+      first and the packet is accepted and forwarded straight into the
+      container's network namespace, so ufw's deny rule for that port
+      never actually gets consulted. This isn't a bug in ufw; it's just
+      two independent iptables rule-management systems that don't know
+      about each other, and Docker's happens to run first.
+    </p>
+    <h2>The fix: don't publish to a wildcard port at all</h2>
+    <p>
+      Rather than fight Docker's chain ordering (editing
+      <code>DOCKER-USER</code> directly is possible but easy to lose on
+      the next Docker upgrade), bind the published port to a single
+      specific interface IP instead of the default <code>0.0.0.0</code>:
+    </p>
+    <pre><code>docker run -p 100.64.0.5:8085:80 ...</code></pre>
+    <p>
+      With an explicit bind address, the container is only reachable via
+      that one interface — no DNAT rule ever gets created for any other
+      interface, so there's nothing for a ufw rule to have needed to
+      block in the first place. Verified: reachable over that specific
+      IP, connection-refused on every other interface's address.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      A ufw rule that looks right and shows up correctly in
+      <code>ufw status</code> can still be silently ineffective against
+      Docker-published ports. For anything running in Docker, prefer an
+      explicit bind-address in the <code>-p</code> mapping over trying to
+      firewall the port after the fact.
+    </p>
+  </article>
+</main>
+</body>
+</html>
