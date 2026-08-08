@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/031-nextcloud-folder-ownership-dav-forbidden.html">
+        A folder's unix owner can silently break Nextcloud WebDAV moves
+        <small>infra — a bind-mounted folder left owned by a real user instead of root:root got rejected by AppArmor's denied dac_override, even though root normally writes anywhere</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/030-npm-deletes-config-on-failed-test.html">
         Nginx Proxy Manager can silently delete a working config on save
         <small>infra — a failed nginx syntax test after an edit leaves the proxy host with no config file at all, with no warning in the UI</small>

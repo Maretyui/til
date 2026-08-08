@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: A folder's unix owner can silently break Nextcloud WebDAV moves</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A folder's unix owner can silently break Nextcloud WebDAV moves</h2>
+    <p>
+      A folder that had briefly been used as a bind mount for another
+      app's consume-directory kept rejecting every attempt to move files
+      into it afterward — from the desktop sync client, the web UI, and
+      the Android app alike. Every client reported the same generic
+      error:
+    </p>
+    <pre><code>Sabre\DAV\Exception\Forbidden: not permitted to move</code></pre>
+    <p>
+      No share settings, ACLs, or app permissions looked wrong anywhere
+      in the admin UI. It genuinely looked like a Nextcloud config bug at
+      first.
+    </p>
+    <h2>The real cause: a plain unix ownership mismatch</h2>
+    <p>
+      Every other Nextcloud-managed file and folder on disk was owned by
+      <code>root:root</code> — that's simply the convention the snap
+      install runs under, since its php-fpm process runs as root. This
+      one folder had been created directly on disk (via a bind mount for
+      an unrelated app, since removed) and was left owned by the actual
+      unix login user instead, e.g. <code>maik:maik</code> rather than
+      <code>root:root</code>.
+    </p>
+    <p>
+      That distinction never usually matters, because php-fpm runs as
+      root and root can write anywhere — except here it couldn't, because
+      the snap's AppArmor confinement profile explicitly denies the
+      <code>dac_override</code> capability. Without that capability, even
+      root is bound by normal unix permission checks and can't write into
+      a directory it doesn't own, so every move into that one folder
+      failed while every other folder on the same instance worked fine.
+    </p>
+    <h2>The fix</h2>
+    <pre><code>chown root:root /path/to/the/folder</code></pre>
+    <p>
+      One ownership change, no Nextcloud config touched at all, and
+      moves into the folder started working immediately in every client.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      If a single folder in an otherwise-healthy Nextcloud instance
+      throws a WebDAV <code>Forbidden</code> error that no share/ACL
+      setting explains, check its actual unix ownership before assuming
+      it's a Nextcloud bug — especially for any folder that was ever
+      touched directly on disk (bind mount, SSH, rsync) rather than
+      created through Nextcloud itself.
+    </p>
+  </article>
+</main>
+</body>
+</html>
