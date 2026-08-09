@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: A Discord interaction token is only valid for 15 minutes, deferring or not</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A Discord interaction token is only valid for 15 minutes, deferring or not</h2>
+    <p>
+      A ticket-bot button handler that did a slow chain of work — a
+      permission check, a database write, then a channel rename — started
+      throwing <code>DiscordAPIError[10062]: Unknown interaction</code>
+      on tickets that had been open for a while, even though the exact
+      same handler worked fine on a fresh ticket seconds after creation.
+    </p>
+    <h2>The assumption that turned out wrong</h2>
+    <p>
+      The instinct was that <code>interaction.deferReply()</code> "resets
+      the clock" — that once you acknowledge an interaction, you have a
+      fresh window to do slow work before replying. That's not what it
+      does. Deferring only satisfies Discord's initial
+      <strong>3-second</strong> ack requirement so the "thinking..." state
+      shows up instead of a failed interaction. It doesn't extend
+      anything.
+    </p>
+    <p>
+      The interaction <em>token</em> itself — the thing
+      <code>editReply()</code>/<code>followUp()</code> actually
+      authenticate with — is unconditionally valid for
+      <strong>15 minutes</strong> from the moment the user triggered the
+      interaction, full stop. Defer or don't defer, that window is fixed.
+      If any part of the handler (an awaited DB query, an external HTTP
+      call, a rate-limited Discord API call like a channel rename) is
+      slow enough that the token's 15-minute lifetime has already elapsed
+      by the time <code>editReply()</code> runs, the edit fails with the
+      same generic "Unknown interaction" error — no matter how early the
+      defer happened.
+    </p>
+    <h2>Why it only showed up on older tickets</h2>
+    <pre><code>// simplified shape of the actual bug
+async function onClaimButton(interaction) {
+  await interaction.deferReply();       // ack within 3s, fine
+  await slowDbLookup(ticket.id);         // fast normally
+  await channel.setName(newName);        // can silently queue behind
+                                          // Discord's 2-per-10-min
+                                          // channel rename rate limit
+  await interaction.editReply("Claimed"); // token may already be dead
+}
+</code></pre>
+    <p>
+      Channels that had already been renamed recently (claim, then
+      unclaim, then reclaim) queued the next rename behind Discord's
+      rate limit for that specific action. On a quiet ticket that wait
+      was invisible; on a busy one it was long enough to blow straight
+      past the interaction token's 15-minute ceiling, and the final
+      <code>editReply()</code> failed.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Treat 15 minutes as a hard, unconditional deadline for any given
+      interaction, not a budget that deferring resets. If a handler does
+      anything that can be rate-limited or genuinely slow (renames,
+      external calls, retries), either keep it well under that ceiling or
+      restructure the flow so the user-visible reply happens fast and the
+      slow work continues afterward as its own follow-up action, rather
+      than gating the reply on it.
+    </p>
+  </article>
+</main>
+</body>
+</html>
