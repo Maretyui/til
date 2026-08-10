@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/034-discord-global-commands-propagation-delay.html">
+        Discord global slash commands can take up to an hour to propagate
+        <small>Discord bots — client.application.commands.set() returns 200 immediately, but the picker update itself can lag up to ~1 hour across every guild, unlike guild.commands.set()</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/033-redis-expire-whole-key-not-fields.html">
         Redis EXPIRE applies to the whole key, not individual hash fields
         <small>infra — setting a TTL on a hash after HSET-ing one field expires every field in that hash, not just the one just written</small>

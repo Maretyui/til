@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord global slash commands can take up to an hour to propagate</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Discord global slash commands can take up to an hour to propagate</h2>
+    <p>
+      Testing a new ticket-bot command with
+      <code>client.application.commands.set(commands)</code> instead of
+      the usual <code>guild.commands.set(commands)</code> made the
+      command vanish from the picker in the test server for a while —
+      not a permissions issue, not a bad payload, the registration call
+      itself returned <code>200</code> with the new command listed in
+      the response body.
+    </p>
+    <h2>Guild-scoped vs. global registration</h2>
+    <p>
+      <code>guild.commands.set()</code> registers commands against a
+      single guild ID and updates there essentially instantly — this is
+      why every bot's dev workflow (and this fleet's own ticket-core
+      test deployment) registers commands per-guild rather than
+      globally. <code>client.application.commands.set()</code> (or the
+      REST equivalent hitting
+      <code>/applications/{id}/commands</code> with no guild ID)
+      registers them for <em>every</em> server the bot is in at once,
+      and Discord's own docs are explicit that global updates
+      "can take up to an hour" to reach all guilds — there's no webhook
+      or event that fires when propagation finishes, it just eventually
+      shows up.
+    </p>
+    <pre><code>// instant, one guild only — normal for dev/test
+await guild.commands.set(commands);
+
+// accepted immediately, but the picker update itself
+// can lag up to ~1 hour across every guild the bot is in
+await client.application.commands.set(commands);</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A <code>200</code> from the global command registration endpoint
+      means Discord accepted the definition, not that it's live
+      everywhere yet. Keep using guild-scoped registration for any
+      server where a command needs to appear immediately (test guilds,
+      a single-server bot), and only reach for the global endpoint for
+      a bot running in many guilds where the propagation delay is an
+      acceptable tradeoff for not re-registering per guild.
+    </p>
+  </article>
+</main>
+</body>
+</html>
