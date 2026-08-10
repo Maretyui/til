@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Redis EXPIRE applies to the whole key, not individual hash fields</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Redis EXPIRE applies to the whole key, not individual hash fields</h2>
+    <p>
+      A small allowlist stored as a Redis hash — one field per trusted
+      forwarding host, read live by a multimap module elsewhere — seemed
+      like a natural place to also auto-expire temporary entries added
+      for a one-off test, by calling <code>EXPIRE</code> on the hash key
+      right after <code>HSET</code>ing the new field. The expectation
+      was that only <em>that field</em> would disappear after the TTL.
+    </p>
+    <h2>What actually happens</h2>
+    <p>
+      <code>EXPIRE keyname 3600</code> sets a TTL on the entire key, not
+      on whichever field was just written. Since a Redis hash is one key
+      holding many fields, expiring it deletes <strong>every field in
+      the hash</strong> once the TTL elapses — including long-lived
+      entries that were never meant to expire at all.
+    </p>
+    <pre><code>HSET allowlist 172.22.1.5/32 "test-entry"
+EXPIRE allowlist 3600
+# one hour later: the ENTIRE allowlist key is gone,
+# not just the 172.22.1.5/32 field</code></pre>
+    <p>
+      This is easy to miss because the command reads as if it's scoped
+      to the most recent write, but <code>EXPIRE</code> has no concept
+      of "the field I just touched" — it only ever operates on the key
+      as a whole.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Redis added true per-field TTLs (<code>HEXPIRE</code>,
+      <code>HPEXPIRE</code>, <code>HPERSIST</code>) in Redis 7.4 — worth
+      checking the running version before assuming they're available.
+      On anything older, a hash is an all-or-nothing TTL unit: either
+      don't mix permanent and temporary entries in the same hash key, or
+      track expiry yourself (a separate sorted set keyed by insertion
+      time, swept periodically) instead of reaching for
+      <code>EXPIRE</code> and assuming it's field-scoped.
+    </p>
+  </article>
+</main>
+</body>
+</html>

@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/033-redis-expire-whole-key-not-fields.html">
+        Redis EXPIRE applies to the whole key, not individual hash fields
+        <small>infra — setting a TTL on a hash after HSET-ing one field expires every field in that hash, not just the one just written</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/032-discord-interaction-token-15min.html">
         A Discord interaction token is only valid for 15 minutes, deferring or not
         <small>discord — deferReply() only satisfies the 3-second ack, it doesn't reset the interaction token's fixed 15-minute lifetime for editReply()</small>
