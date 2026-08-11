@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: systemd-resolved's stub listener can block a port 53 publish with no visible socket</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>systemd-resolved's stub listener can block a port 53 publish with no visible socket</h2>
+    <p>
+      Standing up a local DNS resolver in Docker (bridge mode, publishing
+      <code>53:53/udp</code> and <code>53:53/tcp</code>) failed with
+      Docker's own "address already in use" error. The obvious next step —
+      find whatever's holding port 53 and stop it — went nowhere:
+      <code>ss -tulpn</code>, <code>lsof -i :53</code>, and a scan of
+      <code>iptables</code> NAT rules all came up empty. Even a full
+      <code>systemctl restart docker</code> didn't clear it.
+    </p>
+    <h2>The listener that doesn't show up where you'd look</h2>
+    <p>
+      <code>systemd-resolved</code> ships a "stub listener" that answers
+      DNS queries on <code>127.0.0.53:53</code> (and sometimes
+      <code>127.0.0.54</code>) for local processes that read
+      <code>/etc/resolv.conf</code>. Because it's bound to a loopback
+      alias rather than <code>0.0.0.0</code>, generic port-scanning
+      commands run without matching the exact loopback address don't
+      surface it as an obvious conflict — but Docker's bridge-mode port
+      publish still collides with it at the kernel level when the
+      container tries to bind all interfaces on 53.
+    </p>
+    <pre><code># confirms the stub listener's actual bind address
+ss -tulpn | grep ':53'
+# tcp   LISTEN 0  4096  127.0.0.53:53  0.0.0.0:*  users:(("systemd-resolve",...))
+
+# the fix: disable the stub listener entirely, then restart resolved
+# /etc/systemd/resolved.conf.d/no-stub.conf
+[Resolve]
+DNSStubListener=no</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      After <code>systemctl restart systemd-resolved</code>, Docker's
+      port 53 publish bound cleanly. One side effect worth knowing in
+      advance: disabling the stub listener can leave
+      <code>/etc/resolv.conf</code> pointing at a now-dead loopback
+      address, breaking the host's own DNS resolution until whatever
+      manages that file (Tailscale's MagicDNS, in this case) regenerates
+      it — a quick <code>systemctl restart tailscaled</code> fixed that
+      part. If a container port bind fails with no matching socket in
+      the usual tools, check for a loopback-bound stub listener before
+      assuming the conflict report is wrong.
+    </p>
+  </article>
+</main>
+</body>
+</html>

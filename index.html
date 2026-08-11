@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/035-systemd-resolved-stub-listener-port53.html">
+        systemd-resolved's stub listener can block a port 53 publish with no visible socket
+        <small>infra — a Docker DNS container's "address already in use" error had no matching socket in ss/lsof, since the stub listener only binds a loopback alias</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/034-discord-global-commands-propagation-delay.html">
         Discord global slash commands can take up to an hour to propagate
         <small>Discord bots — client.application.commands.set() returns 200 immediately, but the picker update itself can lag up to ~1 hour across every guild, unlike guild.commands.set()</small>
