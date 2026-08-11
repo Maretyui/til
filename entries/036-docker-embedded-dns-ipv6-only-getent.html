@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Docker's embedded DNS can look IPv6-only while TCP-by-hostname still works fine</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Docker's embedded DNS can look IPv6-only while TCP-by-hostname still works fine</h2>
+    <p>
+      Debugging a Minecraft proxy's connection to a backend server
+      (containers on the same Docker bridge network, addressed by
+      container name instead of a hardcoded IP — the fix for IPs
+      reshuffling across restarts), a sanity check with
+      <code>getent hosts &lt;container-name&gt;</code> from inside the
+      proxy container returned only an IPv6 address. That looked alarming
+      at first: the backend's own listener was IPv4-only, so an
+      IPv6-only DNS answer looks like it should fail outright.
+    </p>
+    <h2>Dual-stack subnet, but the connection still lands</h2>
+    <p>
+      The bridge network in question was configured dual-stack, and
+      Docker's embedded DNS (the resolver at <code>127.0.0.11</code>
+      inside every container on a user-defined network) will return
+      whichever address family it has for a name — on this subnet, that
+      was the IPv6 record. But the actual outbound connection made by
+      the application (a plain TCP socket connect using the hostname,
+      not a raw <code>getent</code> lookup) resolved and connected
+      correctly anyway, verified with a direct <code>curl</code> from
+      inside the container.
+    </p>
+    <pre><code># looks IPv6-only, seems wrong for an IPv4-only backend
+getent hosts backend-container-name
+# fd00:1234::abcd  backend-container-name
+
+# but this just works
+curl -v telnet://backend-container-name:25565</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>getent hosts</code> only shows what one specific resolver
+      call returned, not what the application's own connect path will
+      actually do — Docker's embedded DNS and the container network
+      stack can still route a hostname-based TCP connection correctly
+      even when a manual lookup looks IPv4-incomplete. Don't treat
+      <code>getent</code>/<code>dig</code> output as the final word on
+      whether hostname-based container-to-container networking will
+      work; test the real connection path (a raw <code>curl</code> or
+      the application itself) before concluding DNS is broken.
+    </p>
+  </article>
+</main>
+</body>
+</html>
