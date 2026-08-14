@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Fyne's default canvas.Image scale mode redoes CPU resampling on every repaint</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Fyne's default canvas.Image scale mode redoes CPU resampling on every repaint</h2>
+    <p>
+      After getting a Fyne desktop app's Android build actually installable,
+      the first real device test showed a noticeably sluggish full-screen
+      background image — visible frame stutter just from scrolling content
+      on top of it, on hardware that otherwise ran the rest of the UI fine.
+      The image itself was a static <code>canvas.Image</code> with
+      <code>FillMode: canvas.ImageFillStretch</code>, nothing exotic.
+    </p>
+    <h2>ScaleSmooth is a CPU-side bilinear resample, every single frame</h2>
+    <p>
+      Fyne's <code>canvas.Image</code> defaults to
+      <code>canvas.ImageScaleSmooth</code>, which does bilinear resampling
+      on the CPU and — critically — redoes that resampling on every repaint,
+      not just once when the image is first scaled. On desktop GPUs this is
+      usually cheap enough to not notice. On mobile hardware it shows up
+      immediately as dropped frames, especially for a large full-bleed
+      background image that's present behind every other repaint.
+    </p>
+    <pre><code>bg := canvas.NewImageFromResource(wallpaperRes)
+bg.FillMode = canvas.ImageFillStretch
+bg.ScaleMode = canvas.ImageScaleFastest // GPU-scaled, not resampled per frame</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>ImageScaleFastest</code> hands the scaling off to the GPU
+      instead of resampling on the CPU per frame — a strict win for a
+      static background image, since nearest-neighbour vs bilinear is
+      visually indistinguishable at typical stretch ratios but the perf
+      difference is real. Worth setting unconditionally rather than only
+      gating it behind a mobile check: it measurably helped the desktop
+      build too, it just wasn't bad enough there to notice first.
+    </p>
+  </article>
+</main>
+</body>
+</html>

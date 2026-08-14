@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/037-fyne-canvas-image-scale-mode.html">
+        Fyne's default canvas.Image scale mode redoes CPU resampling on every repaint
+        <small>Go/Fyne — mobile perf — ImageScaleSmooth bilinear-resamples a full-screen background on every frame; ImageScaleFastest hands scaling to the GPU instead, a strict win on both mobile and desktop</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/036-docker-embedded-dns-ipv6-only-getent.html">
         Docker's embedded DNS can look IPv6-only while TCP-by-hostname still works fine
         <small>Minecraft admin — infra — getent hosts returned only an IPv6 record on a dual-stack bridge network, but the real application connection by hostname worked anyway</small>
