@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/038-docker-compose-force-recreate-writable-layer.html">
+        docker compose --force-recreate wipes anything installed into a container's writable layer
+        <small>infra/Docker — named volumes and bind mounts survive a recreate, but a curl-installed binary or by-hand apt install inside the container itself doesn't</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/037-fyne-canvas-image-scale-mode.html">
         Fyne's default canvas.Image scale mode redoes CPU resampling on every repaint
         <small>Go/Fyne — mobile perf — ImageScaleSmooth bilinear-resamples a full-screen background on every frame; ImageScaleFastest hands scaling to the GPU instead, a strict win on both mobile and desktop</small>

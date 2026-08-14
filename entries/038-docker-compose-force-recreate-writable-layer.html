@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: docker compose --force-recreate wipes anything installed into a container's writable layer</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>docker compose --force-recreate wipes anything installed into a container's writable layer</h2>
+    <p>
+      While experimenting with a WordPress container as a headless CMS,
+      <code>wp-cli</code> got installed straight into the running
+      container with a quick <code>curl</code>-to-<code>/usr/local/bin</code>
+      one-liner, the same way you'd install a tool on a normal VM. It
+      worked fine for a while — until an unrelated
+      <code>docker compose up -d --force-recreate</code> (done to pick up
+      a changed environment variable) came back with
+      <code>wp: command not found</code>, as if it had never been
+      installed at all.
+    </p>
+    <h2>Named volumes and bind mounts survive; the container's own layer doesn't</h2>
+    <p>
+      The WordPress files themselves (the actual site content, uploaded
+      media, the custom plugin directory) were untouched — those live in
+      a named volume and a bind mount respectively, both of which are
+      external to the container and explicitly preserved across a
+      recreate. But <code>--force-recreate</code> does exactly what it
+      says: it throws away the old container (including its writable
+      layer) and creates a fresh one from the image, so anything
+      installed imperatively into that layer — a curl'd binary, an
+      <code>apt install</code> run by hand inside a shell, etc. — is
+      gone, with no warning that it's about to happen.
+    </p>
+    <pre><code># this looks like a normal restart, but it's actually a full recreate:
+docker compose up -d --force-recreate
+
+# survives: named volumes, bind mounts (declared in docker-compose.yml)
+# does NOT survive: anything installed by hand into the container itself</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Anything a container needs long-term belongs in the image (a
+      Dockerfile layer) or an entrypoint script that reinstalls it on
+      every start — not a one-off manual install into a running
+      container, even one that's expected to stay up for a while.
+      Treat <code>--force-recreate</code> (and any other flow that
+      replaces the container rather than just restarting the same one)
+      as a reminder to reinstall one-off tooling, not a bug when it
+      quietly disappears.
+    </p>
+  </article>
+</main>
+</body>
+</html>
