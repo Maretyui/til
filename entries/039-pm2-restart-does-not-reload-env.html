@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: pm2 restart doesn't reload ecosystem.config.js env vars</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>pm2 restart doesn't reload ecosystem.config.js env vars</h2>
+    <p>
+      Changed a <code>DATABASE_URL</code> value in an app's
+      <code>ecosystem.config.js</code> to point at a different host, then
+      ran <code>pm2 restart &lt;name&gt;</code> expecting the process to
+      pick it up. It didn't — every request the app made still went to
+      the old host, for what turned out to be weeks, even though the
+      config file on disk was correct the whole time.
+    </p>
+    <h2>pm2 restart reapplies cached process metadata, not the file</h2>
+    <p>
+      <code>pm2 restart</code> (by name or id) restarts the process using
+      PM2's own in-memory/dumped process metadata — environment variables
+      included — not by re-reading <code>ecosystem.config.js</code> from
+      disk. Even <code>pm2 restart &lt;name&gt; --update-env</code>,
+      which sounds like exactly the right flag, only refreshes env vars
+      from the *current shell*, not from the config file.
+    </p>
+    <pre><code># does NOT re-read ecosystem.config.js:
+pm2 restart myapp
+pm2 restart myapp --update-env
+
+# actually re-reads it from disk:
+pm2 delete myapp
+pm2 start ecosystem.config.js
+pm2 save</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any time an <code>ecosystem.config.js</code> env value changes,
+      <code>pm2 delete</code> the process first and start it fresh from
+      the config file, then <code>pm2 save</code> to persist the
+      corrected state — don't trust a plain restart to have noticed the
+      edit, and don't assume a hung/misbehaving request path is a code
+      bug before checking what environment the running process actually
+      has (<code>pm2 env &lt;id&gt;</code> or
+      <code>/proc/&lt;pid&gt;/environ</code> shows the ground truth).
+    </p>
+  </article>
+</main>
+</body>
+</html>

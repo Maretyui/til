@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/039-pm2-restart-does-not-reload-env.html">
+        pm2 restart doesn't reload ecosystem.config.js env vars
+        <small>infra/PM2 — a restart reapplies PM2's own cached process metadata, not the config file on disk; pm2 delete + pm2 start is the only reliable way to pick up a changed env value</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/038-docker-compose-force-recreate-writable-layer.html">
         docker compose --force-recreate wipes anything installed into a container's writable layer
         <small>infra/Docker — named volumes and bind mounts survive a recreate, but a curl-installed binary or by-hand apt install inside the container itself doesn't</small>
