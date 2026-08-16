@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: discord.js guild command registration 403s if the bot isn't in the guild yet</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>discord.js guild command registration 403s if the bot isn't in the guild yet</h2>
+    <p>
+      Spinning up a new ticket bot deployment for a fresh Discord server,
+      the very first <code>REST.put()</code> call to register guild
+      slash commands against the new guild ID came back with
+      <code>DiscordAPIError[50001]: Missing Access</code>. The bot token
+      was correct, the application ID was correct, and the exact same
+      registration code worked fine against every other guild the bot
+      already had commands in.
+    </p>
+    <h2>The bot has to actually be a member of the guild first</h2>
+    <p>
+      A bot token authenticates the *application*, but registering
+      commands scoped to a specific guild (as opposed to global
+      commands) still requires the bot to already be present as a member
+      of that guild — the API has no way to attach guild-scoped commands
+      to a server the bot hasn't joined. Copying a guild ID out of
+      Discord's UI and wiring it into config isn't enough on its own; the
+      invite step has to happen first, and it's easy to skip when a
+      config-only deployment feels "done" before anyone's actually
+      clicked the invite link.
+    </p>
+    <pre><code>// looks like a permissions/token bug, but it's really an ordering bug:
+await rest.put(
+  Routes.applicationGuildCommands(clientId, guildId),
+  { body: commands },
+); // -> DiscordAPIError[50001]: Missing Access
+
+// fix: invite the bot to that guild first, with the scopes it needs
+// https://discord.com/oauth2/authorize?client_id=CLIENT_ID&permissions=8&scope=bot%20applications.commands</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      When a fresh guild-scoped deployment throws "Missing Access" on
+      its very first registration call, check guild membership before
+      touching token/permission config — open the server's member list
+      and confirm the bot is actually listed there. If it isn't, the fix
+      is just clicking the OAuth invite URL with the
+      <code>bot</code> and <code>applications.commands</code> scopes,
+      not debugging the registration code itself.
+    </p>
+  </article>
+</main>
+</body>
+</html>
