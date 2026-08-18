@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: SQLite in WAL mode still needs a busy_timeout under real concurrent writes</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A Discord ticket bot occasionally threw SQLITE_BUSY under load</h2>
+    <p>
+      A small discord.js ticket bot backed by SQLite worked fine in
+      testing, but under real production traffic — several staff members
+      clicking claim/close/priority buttons within the same second —
+      an occasional handler crashed with <code>SQLITE_BUSY: database is
+      locked</code>. WAL mode was already enabled, which is supposed to
+      be the fix for concurrent readers/writers not blocking each other.
+    </p>
+    <h2>WAL fixes readers-vs-writer, not writer-vs-writer</h2>
+    <p>
+      Write-ahead logging lets readers keep reading a stable snapshot
+      while a writer appends to the WAL file, so reads and writes no
+      longer block each other the way rollback-journal mode does. It
+      does <em>not</em> mean two writers can commit at literally the same
+      instant — SQLite still serializes writes with a single reserved
+      lock, and by default a second writer that can't immediately get it
+      fails instantly with <code>SQLITE_BUSY</code> instead of waiting.
+    </p>
+    <pre><code>-- enabled, but not sufficient on its own under concurrent writes:
+PRAGMA journal_mode = WAL;
+
+-- the missing piece: make a blocked writer retry for up to N ms
+-- instead of failing immediately
+PRAGMA busy_timeout = 5000;</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>busy_timeout</code> (or the equivalent option in whatever
+      SQLite driver/library is in use — better-sqlite3's
+      <code>pragma('busy_timeout = 5000')</code> in this case) turns a
+      near-instant lock collision from a hard failure into a short,
+      invisible retry-and-wait. WAL mode alone only solves half of the
+      concurrency problem; a real busy timeout is what actually closes
+      the gap for the two-writers-at-once case.
+    </p>
+  </article>
+</main>
+</body>
+</html>
