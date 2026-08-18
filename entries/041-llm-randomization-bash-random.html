@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: an LLM asked to "pick a random number" converges on the same number</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A daily cron prompt said "pick a random number of repos to touch"</h2>
+    <p>
+      A daily automation script prompts an LLM to decide how many repos
+      to touch out of a fixed pool, phrased as "pick a random count
+      between 1 and N." Looking back over several weeks of run logs, the
+      chosen count wasn't random at all — it converged hard on the same
+      single number, run after run, with only rare deviation.
+    </p>
+    <h2>Why: sampling from a prompt isn't sampling from a distribution</h2>
+    <p>
+      An LLM asked to "choose randomly" is still doing next-token
+      prediction over the text of its own answer, not calling a real
+      RNG. Whatever number reads as the most typical, unremarkable
+      "random-sounding" choice for that phrasing ends up dominating the
+      output distribution — the model has no access to actual entropy
+      unless something outside it supplies one.
+    </p>
+    <pre><code># doesn't reliably vary run to run:
+# "pick a random number between 1 and 11"
+
+# does, because the randomness comes from outside the model:
+TOUCH_COUNT=$(( (RANDOM % 11) + 1 ))
+echo "$TOUCH_COUNT" # fed into the prompt as a fixed instruction, not a choice</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      If a script needs a value to genuinely vary, generate it with a
+      real source of randomness (<code>$RANDOM</code>, <code>shuf</code>,
+      <code>/dev/urandom</code>) outside the model and hand it to the
+      prompt as a already-decided instruction, rather than asking the
+      model to invent the number itself. This applies to anything where
+      uniform-looking output would be a red flag — variable commit
+      counts, sampled test data, jittered retry delays — not just this
+      one cron job.
+    </p>
+  </article>
+</main>
+</body>
+</html>

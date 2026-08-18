@@ -15,6 +15,18 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/042-sqlite-wal-busy-timeout-discord-bot.html">
+        SQLite in WAL mode still needs a busy_timeout under real concurrent writes
+        <small>infra/SQLite — WAL mode solves readers-vs-writer blocking, not writer-vs-writer; a real busy_timeout is what turns a lock collision into a retry instead of a crash</small>
+      </a>
+    </li>
+    <li>
+      <a href="entries/041-llm-randomization-bash-random.html">
+        An LLM asked to "pick a random number" converges on the same number
+        <small>automation — sampling from a prompt isn't sampling from a distribution; generate real randomness outside the model ($RANDOM, shuf) and hand it in as a fixed instruction instead</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/040-discordjs-missing-access-guild-commands.html">
         discord.js guild command registration 403s if the bot isn't in the guild yet
         <small>Discord bots — guild-scoped slash command registration needs the bot to already be a member of that guild; the fix is the OAuth invite, not a token/permission change</small>
