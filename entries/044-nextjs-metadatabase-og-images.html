@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Next.js's Metadata API resolves relative Open Graph images against localhost without metadataBase</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Sharing a Next.js site's link in Discord showed no preview image</h2>
+    <p>
+      A small marketing site had a normal-looking <code>openGraph</code>
+      block in its root <code>layout.tsx</code> — title, description, a
+      relative <code>images</code> path pointing at a file in
+      <code>public/</code>. Locally everything rendered fine. In
+      production, pasting the URL into Discord/Slack/iMessage produced a
+      link preview with no image at all.
+    </p>
+    <h2>Why: a relative OG image URL needs something to resolve it against</h2>
+    <p>
+      Open Graph tags are read by an external crawler, not a browser
+      that already knows the current origin — a relative
+      <code>images: ["/og-image.png"]</code> has to become an absolute
+      URL somewhere. Next.js's Metadata API does this resolution
+      automatically, but only if it's told the site's real base URL via
+      <code>metadataBase</code>. Without it, Next.js silently falls back
+      to resolving against <code>http://localhost:3000</code> and logs a
+      one-line warning in the server console that's easy to miss in a
+      full build log.
+    </p>
+    <pre><code>// app/layout.tsx
+export const metadata: Metadata = {
+  metadataBase: new URL("https://example.com"), // the missing piece
+  title: "Example",
+  openGraph: {
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+};</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any Next.js App Router project using relative image paths anywhere
+      in its <code>Metadata</code> (openGraph, twitter, icons) needs
+      <code>metadataBase</code> set to the real production origin, or
+      every crawler that isn't running against localhost resolves those
+      paths to a dead link. Worth grepping a project's
+      <code>layout.tsx</code> for <code>openGraph</code>/<code>twitter</code>
+      blocks and confirming <code>metadataBase</code> is actually present
+      whenever a new relative image path gets added.
+    </p>
+  </article>
+</main>
+</body>
+</html>
