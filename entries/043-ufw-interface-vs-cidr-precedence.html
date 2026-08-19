@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: ufw's rule order doesn't behave the same for CIDR-scoped and interface-scoped rules</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Restricting SSH to a mesh network locked a host out completely</h2>
+    <p>
+      Locking SSH down to VPN-mesh-only access on a small fleet of hosts
+      seemed like a two-rule change: allow the mesh's CIDR range on port
+      22, deny everything else on port 22. On most hosts that worked
+      exactly as expected. On one host it broke SSH entirely — not just
+      from the LAN, but from the mesh too — requiring the hypervisor's
+      console to fix.
+    </p>
+    <pre><code># the rule set that broke SSH on one host, worked fine on the others:
+ufw allow from 100.64.0.0/10 to any port 22
+ufw deny to any port 22</code></pre>
+    <h2>Why: an unscoped deny and a CIDR-scoped allow don't sort the way the rule numbers suggest</h2>
+    <p>
+      <code>ufw status numbered</code> shows rules in a clean top-to-bottom
+      order, which reads like "allow wins because it's listed first." In
+      practice a <code>deny</code> with no source restriction and an
+      <code>allow</code> scoped only by a source CIDR didn't resolve in
+      that intuitive order on this host — the deny effectively won for
+      all traffic on that port, mesh included. The exact internal
+      precedence isn't worth memorizing; the safer fix is to sidestep the
+      ambiguity entirely.
+    </p>
+    <pre><code># the fix: scope both rules by network *interface* instead of by CIDR
+ufw allow in on tailscale0 to any port 22 proto tcp
+ufw deny in on eth0 to any port 22 proto tcp</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      When restricting a port to one network path on a box that already
+      has an <code>allow</code>-by-default policy, prefer interface-scoped
+      rules (<code>in on &lt;iface&gt;</code>) over CIDR-scoped ones for
+      both the allow and the deny. It reads exactly as intended — "only
+      this NIC may reach this port" — and doesn't depend on how ufw
+      resolves an unscoped rule against a scoped one for the same port.
+      Worth testing from a second, already-open session before closing
+      the one you're using, in case a host behaves like this one did.
+    </p>
+  </article>
+</main>
+</body>
+</html>

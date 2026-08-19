@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/043-ufw-interface-vs-cidr-precedence.html">
+        ufw's rule order doesn't behave the same for CIDR-scoped and interface-scoped rules
+        <small>infra — an unscoped deny beat a CIDR-scoped allow on one host and locked out SSH entirely, interface-scoped rules fixed it</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/042-sqlite-wal-busy-timeout-discord-bot.html">
         SQLite in WAL mode still needs a busy_timeout under real concurrent writes
         <small>infra/SQLite — WAL mode solves readers-vs-writer blocking, not writer-vs-writer; a real busy_timeout is what turns a lock collision into a retry instead of a crash</small>
