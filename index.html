@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/046-rspamd-spoofed-unauth-mailing-list.html">
+        Rspamd silently drops mailing-list redistribution unless the list server's IP is forwarding-allowlisted
+        <small>infra/mail — a resent message keeps the original From:, which Rspamd's SPOOFED_UNAUTH composite treats as spoofing unless the relaying host is explicitly allowlisted as a trusted forwarder</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/045-wordpress-siteurl-constant-override.html">
         WordPress's WP_SITEURL/WP_HOME constants silently override the DB options of the same name
         <small>web dev — a defined constant wins over wp_options unconditionally, and wp option get reads back the effective (constant) value, making a successful-looking DB update a no-op</small>

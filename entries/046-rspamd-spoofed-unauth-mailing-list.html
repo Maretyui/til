@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Rspamd silently drops mailing-list redistribution unless the list server's IP is forwarding-allowlisted</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>List mail arrived at the list server fine, but subscribers never got it</h2>
+    <p>
+      A self-hosted mailing list (Mailman, sitting behind Postfix/Rspamd
+      on the same mail stack as regular inboxes) looked completely
+      healthy from the sender's side — the message reached the list
+      software, logs showed <code>status=sent</code> for the hop into it.
+      No subscriber ever received the redistributed copy, and there was
+      no bounce anywhere for the original sender to notice. It just
+      silently vanished on the way back out.
+    </p>
+    <h2>Why: Rspamd can't tell a legitimate relay from a spoofed From: header</h2>
+    <p>
+      When the list software resends a message, it keeps the original
+      sender's address in <code>From:</code>/envelope-from — which, from
+      Postfix's perspective, is a locally-hosted domain claiming to send
+      mail without SASL authentication. Rspamd's <code>SPOOFED_UNAUTH</code>
+      composite exists exactly to catch real spoofing like that, and it
+      fired on every single redistributed copy, scoring well past the
+      reject threshold with no visible error except a normal-looking
+      reject in the mail log.
+    </p>
+    <pre><code># the fix: allowlist the list server's own container/host IP
+# as a trusted forwarding source (Mailcow's "Forwarding Hosts",
+# backed by a Redis hash Rspamd's multimap module reads live)
+redis-cli HSET WHITELISTED_FWD_HOST 172.22.1.5/32 mailing-list-relay</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any internal service that resends mail on someone else's behalf —
+      a mailing list, a helpdesk auto-responder, a forwarding rule — needs
+      to be explicitly trusted by the spam filter, or every redistributed
+      copy gets treated as spoofing and disappears with no bounce visible
+      to the original sender. The symptom ("people just don't get list
+      mail sometimes") looks nothing like the cause, so this is worth
+      checking first if a working-looking relay produces zero delivered
+      copies: allowlist the resending service's source IP for forwarding,
+      not just for general sending.
+    </p>
+  </article>
+</main>
+</body>
+</html>
