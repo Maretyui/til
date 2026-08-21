@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: WordPress's WP_SITEURL/WP_HOME constants silently override the DB options of the same name</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>wp-cli said the URL was updated, but nothing changed</h2>
+    <p>
+      A local dockerized WordPress instance kept resolving to the wrong
+      base URL — login redirects, asset paths, everything pointed at a
+      stale host. <code>wp option update siteurl https://correct-host</code>
+      ran clean and even <code>wp option get siteurl</code> echoed the
+      new value back. Every page load still used the old one.
+    </p>
+    <h2>Why: a defined constant wins over the database option, but the CLI doesn't tell you that</h2>
+    <p>
+      WordPress core checks for the <code>WP_SITEURL</code>/<code>WP_HOME</code>
+      PHP constants before it ever reads the <code>siteurl</code>/<code>home</code>
+      rows in <code>wp_options</code>. If either constant is defined
+      anywhere in the load path — most commonly a
+      <code>define()</code> baked into <code>wp-config.php</code>, or in
+      this case an env var injected as extra config by the official
+      Docker image — it wins unconditionally, and <code>wp option get</code>
+      is misleading here: it reads back the *effective* value (the
+      constant), which makes a successful-looking option update look
+      like it took effect when it never touched the real source of truth.
+    </p>
+    <pre><code># docker-compose.yml — the actual override, easy to miss
+environment:
+  WORDPRESS_CONFIG_EXTRA: |
+    define('WP_SITEURL', 'https://old-host');
+    define('WP_HOME', 'https://old-host');</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      If a WordPress site's URL seems "stuck" despite a clean
+      <code>wp option update</code>, grep the actual
+      <code>wp-config.php</code> (and, for Docker installs, the compose
+      file's env block) for <code>WP_SITEURL</code>/<code>WP_HOME</code>
+      constants before spending more time on the database. Fixing the
+      constant — then recreating the container so the new env value
+      actually loads — is the real fix; editing the option again just
+      repeats the same no-op.
+    </p>
+  </article>
+</main>
+</body>
+</html>
