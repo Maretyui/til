@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: A Tailscale exit node's ufw firewall needs FORWARD set to ACCEPT, not DENY</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Locking down a box with ufw also silently killed its one real job</h2>
+    <p>
+      A small VPS was doing double duty as a Tailscale exit node — mesh
+      devices route their internet-bound traffic through it so they get
+      its public IP as their egress address. It had no firewall at all,
+      which was overdue for fixing given the SSH brute-force noise it was
+      taking on its public IP. Enabling <code>ufw</code> with a sane
+      default-deny posture seemed like the obvious move.
+    </p>
+    <h2>Why: ufw's default FORWARD policy quietly breaks exit-node routing</h2>
+    <p>
+      An exit node's whole function is forwarding — packets come in from
+      one interface (the Tailscale mesh) and go back out another (the
+      public interface), rather than being addressed to the box itself.
+      ufw's out-of-the-box default sets <code>DEFAULT_FORWARD_POLICY</code>
+      to <code>DROP</code>, since most hosts should never route third-party
+      traffic. On an exit node, that default drops every packet the whole
+      feature depends on — Tailscale's own <code>ts-forward</code> chain
+      still runs (it's jumped to before ufw's own forward chains), but
+      ufw's policy silently discards what comes out the other side.
+    </p>
+    <pre><code># /etc/default/ufw
+DEFAULT_FORWARD_POLICY="ACCEPT"
+
+# and allow routing in general
+ufw default allow routed</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any host acting as a router/relay (Tailscale exit node, VPN gateway,
+      NAT box) needs its firewall's forward policy treated as a separate
+      question from its input policy — a correct, restrictive
+      <code>ufw default deny incoming</code> can still coexist with
+      <code>allow routed</code>/<code>FORWARD ACCEPT</code>, since inbound
+      traffic addressed to the host itself and traffic merely passing
+      through it are governed by entirely different iptables chains. Test
+      the actual forwarded path (route a real device through the exit
+      node and check its egress IP) after any firewall change on a box
+      like this, not just SSH reachability — SSH working fine gives no
+      signal at all about whether forwarding still does.
+    </p>
+  </article>
+</main>
+</body>
+</html>
