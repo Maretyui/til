@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Fyne's Android debug build hardcodes an old targetSdkVersion, triggering a scary install warning</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A freshly built Android APK warned that it was "built for an older version"</h2>
+    <p>
+      Porting a Fyne (Go GUI toolkit) desktop app to Android via
+      <code>fyne-cross</code> produced an installable APK, but Android
+      showed its "this app was built for an older version of Android and
+      may not work properly" warning on install — on a device running a
+      current OS, for an app built the same day. Nothing in the app's own
+      code touched SDK versions at all.
+    </p>
+    <h2>Why: fyne-cross's default build mode hardcodes targetSdkVersion 29</h2>
+    <p>
+      <code>fyne-cross</code>'s ordinary (debug) build path is a known,
+      documented gomobile limitation — debug-signed builds pin
+      <code>targetSdkVersion=29</code> regardless of what SDK is actually
+      installed in the build image, because debug signing on Android has
+      restrictions that release signing doesn't. The app itself was fine;
+      the manifest it shipped with just claimed a years-old target API
+      level, which is exactly the condition that warning exists to catch.
+    </p>
+    <pre><code># the fix: build in release mode, which targets the SDK
+# actually available in the build image (35 in this case) —
+# but this requires a real keystore, not gomobile's throwaway
+# debug-signing identity
+fyne-cross android -release \
+  -app-id com.example.app \
+  -keystore ./release.keystore \
+  -keystore-pass "$STOREPASS" \
+  -key-password "$KEYPASS"</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A build-time warning that looks like it's about the target device
+      ("built for an older version") can just as easily be about the
+      build's own signing mode instead of anything actually wrong with
+      the code. Worth checking whether debug vs. release signing changes
+      the manifest's declared SDK levels before spending time hunting for
+      a compatibility bug that isn't there — release mode also outputs a
+      Play Store <code>.aab</code> bundle rather than a directly
+      installable APK, so a tool like <code>bundletool</code> is needed
+      afterward to get a sideloadable universal APK back out of it.
+    </p>
+  </article>
+</main>
+</body>
+</html>

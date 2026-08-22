@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/048-fyne-android-release-targetsdk.html">
+        Fyne's Android debug build hardcodes an old targetSdkVersion, triggering a scary install warning
+        <small>dev tooling — fyne-cross's debug signing mode pins targetSdkVersion=29 regardless of the real SDK installed; -release mode fixes it but needs a real keystore and outputs an .aab, not an APK</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/047-ufw-exit-node-forward-policy.html">
         A Tailscale exit node's ufw firewall needs FORWARD set to ACCEPT, not DENY
         <small>infra — ufw's default DEFAULT_FORWARD_POLICY=DROP silently breaks exit-node routing even while SSH to the box itself keeps working fine</small>
