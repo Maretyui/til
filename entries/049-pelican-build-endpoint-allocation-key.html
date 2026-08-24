@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Pelican's server build endpoint 500s on limit-only edits unless you also resend the allocation</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A memory/CPU-only limit change threw an unrelated-looking 500</h2>
+    <p>
+      Bumping a Minecraft server's memory limit through Pelican Panel's
+      Application API — a plain <code>PATCH</code> to the server's build
+      endpoint with just <code>memory</code>/<code>cpu</code>/<code>disk</code>
+      in the body — failed with a generic 500 and, once debug logging was
+      on, an uncaught <code>Undefined array key "allocation"</code>.
+      Nothing about resource limits should care about network allocation
+      at all.
+    </p>
+    <h2>Why: the endpoint expects the full build payload every time</h2>
+    <p>
+      The build-update endpoint isn't a set of independent partial-update
+      fields — it reads <code>allocation</code> unconditionally while
+      assembling the update, even when the request is only trying to
+      change limits. Omit it and the handler throws before it ever gets
+      to the fields that were actually being changed.
+    </p>
+    <pre><code>// fails: Undefined array key "allocation"
+PATCH /api/application/servers/42/build
+{ "memory": 4096, "cpu": 200, "disk": 20000 }
+
+// works: always include the server's *current* allocation id,
+// even when only limits are changing
+PATCH /api/application/servers/42/build
+{ "memory": 4096, "cpu": 200, "disk": 20000, "allocation": 17 }</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      An API endpoint's name and the fields you're actually trying to
+      change don't guarantee it treats the rest of its schema as
+      optional — some "update" endpoints are really "replace with this
+      full document" endpoints wearing a PATCH verb. When a field-scoped
+      edit throws on a completely unrelated key, try resending the
+      current value of that key alongside the real change before assuming
+      it's a deeper bug.
+    </p>
+  </article>
+</main>
+</body>
+</html>
