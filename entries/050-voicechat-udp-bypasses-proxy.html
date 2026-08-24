@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Simple Voice Chat doesn't tunnel through a Minecraft proxy the way normal play traffic does</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Voice chat worked on one backend server and not another, same proxy setup</h2>
+    <p>
+      Running several Paper servers behind a Velocity proxy (players
+      connect once to the proxy's port, Velocity routes them to whichever
+      backend they're on) is the normal setup for regular play traffic.
+      Adding the Simple Voice Chat mod, the expectation was that voice
+      would just ride along the same way — one exposed port, Velocity
+      sorting out where it goes. It didn't: voice worked for players on
+      the backend whose own port happened to be open directly, and
+      silently failed for everyone else.
+    </p>
+    <h2>Why: voice chat is a separate UDP stream, not a Minecraft protocol packet</h2>
+    <p>
+      Velocity's routing only understands the actual Minecraft protocol —
+      the TCP connection players make on the proxy's own port. Simple
+      Voice Chat doesn't send audio over that connection at all; each
+      backend server opens and advertises its <em>own</em> UDP port for
+      voice, and the client connects to that port directly once it learns
+      which one to use. There's no proxy hop involved for voice at all, so
+      whatever normally makes multi-backend routing transparent for chat
+      and movement does nothing here.
+    </p>
+    <pre><code># TCP: player -> proxy:25565 -> Velocity picks the backend
+# UDP (voice chat): player -> backend's own advertised port, direct,
+# no proxy involved regardless of which backend that is</code></pre>
+    <h2>The fix</h2>
+    <p>
+      Forward the whole voice chat UDP port range straight to the game
+      server host at the router/firewall level, separately from the
+      single TCP port already forwarded for Velocity — and keep every
+      backend's TCP port itself firewalled off from the outside world,
+      since those still bypass the proxy's auth forwarding if reachable
+      directly.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      "It's behind the proxy" is a per-protocol claim, not a per-server
+      one. A mod or plugin that opens its own socket instead of piggy­backing
+      on the game's existing connection needs its own explicit path
+      through the network, even in a setup where everything else already
+      routes cleanly through one shared entry point.
+    </p>
+  </article>
+</main>
+</body>
+</html>

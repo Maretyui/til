@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/050-voicechat-udp-bypasses-proxy.html">
+        Simple Voice Chat doesn't tunnel through a Minecraft proxy the way normal play traffic does
+        <small>infra/Minecraft — each backend opens its own UDP port for voice, so Velocity's TCP-only routing never sees it; needs its own separate port forward</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/049-pelican-build-endpoint-allocation-key.html">
         Pelican's server build endpoint 500s on limit-only edits unless you also resend the allocation
         <small>infra — PATCH .../build reads allocation unconditionally while assembling the update, so omitting it on a pure memory/cpu/disk change throws before the real fields are ever touched</small>
