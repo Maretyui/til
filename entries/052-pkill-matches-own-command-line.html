@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: pkill -f matches against the full command line, including the command doing the killing</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A safety rollback timer died silently mid-rollout, along with the SSH session running it</h2>
+    <p>
+      Rolling out a firewall change over SSH included a standard safety
+      net: a backgrounded rollback script armed with a delay, so that if
+      the new rules locked out access the box would revert itself
+      automatically. Partway through verifying the new rules, a cleanup
+      step ran <code>pkill -f rollback.sh</code> to cancel that timer now
+      that the change looked good — and the SSH session running the
+      cleanup step died with it, before the verification/persist step
+      that was supposed to run next ever executed.
+    </p>
+    <h2>Why: -f matches the whole command line, not just the target process</h2>
+    <p>
+      <code>pkill -f PATTERN</code> greps the pattern against each
+      process's full command line, not just its executable name. The
+      command doing the killing was itself invoked over SSH with
+      <code>rollback.sh</code> somewhere in its own argument string (the
+      remote command passed to <code>ssh</code> included the path for
+      logging purposes) — so the pattern matched two processes at once:
+      the actual timer, and the very shell issuing the <code>pkill</code>
+      call. Killing your own shell out from under yourself doesn't error
+      loudly; the connection just drops.
+    </p>
+    <pre><code># looked like it would only ever match the background timer:
+pkill -f rollback.sh
+
+# but `ps -ef` at that moment showed both:
+#   /bin/bash /root/fw-snapshot/rollback.sh 300      <- the intended target
+#   sshd: root@pts/2  bash -c '... rollback.sh ...'  <- the command's own invocation, also matched</code></pre>
+    <h2>The fix</h2>
+    <p>
+      Match on something present in the target process but not in the
+      command issuing the kill — the script's absolute path plus a
+      distinguishing argument, or better, have the rollback script write
+      its own PID to a file on startup and kill by PID instead of by
+      pattern. Also worth re-verifying the actual outcome afterward
+      (config file mtime, persisted rule count) rather than trusting that
+      a command with no error output did what was intended.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any <code>pkill -f</code>/<code>pgrep -f</code> pattern is matched
+      against the entire process table's command lines, including
+      whatever shell or wrapper is currently running the match itself —
+      worth a second's thought before running it over the same channel
+      you can't afford to lose.
+    </p>
+  </article>
+</main>
+</body>
+</html>
