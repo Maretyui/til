@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/051-nat-hairpin-loopback.html">
+        A consumer router without NAT loopback breaks internal clients hitting their own public hostname
+        <small>infra — a LAN client resolving a self-hosted service's public domain routes out to the WAN IP and back, which many routers just don't support; fixed with a local DNS override, not per-device hacks</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/050-voicechat-udp-bypasses-proxy.html">
         Simple Voice Chat doesn't tunnel through a Minecraft proxy the way normal play traffic does
         <small>infra/Minecraft — each backend opens its own UDP port for voice, so Velocity's TCP-only routing never sees it; needs its own separate port forward</small>

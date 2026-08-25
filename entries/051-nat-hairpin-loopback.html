@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: A consumer router without NAT loopback breaks internal clients hitting their own public hostname</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A mail client on the home network couldn't connect to the mail server, by hostname</h2>
+    <p>
+      A self-hosted mail server sits on the LAN and is also reachable from
+      the internet through a port forward on the router, using its own
+      public domain name. Connecting from outside worked fine. Connecting
+      from a phone on the same home WiFi, using that exact same domain
+      name, just hung until it timed out — even though connecting to the
+      server's raw LAN IP instead worked immediately, from the same phone,
+      on the same network.
+    </p>
+    <h2>Why: consumer routers often don't support NAT loopback/hairpinning</h2>
+    <p>
+      The domain resolves publicly to the router's WAN IP. An internal
+      client asking for that same public IP sends the request out toward
+      the router's external interface — but the client itself is already
+      behind that router, on the internal network. Hairpin NAT is the
+      feature that lets a router notice "this traffic is destined for my
+      own public IP and forwarded port, redirect it back inside to the
+      LAN host" instead of just dropping it or routing it out to the
+      internet and back. Plenty of consumer routers, including this one,
+      simply don't implement it.
+    </p>
+    <pre><code># from outside the LAN:      client -> WAN IP:port -> router forwards -> LAN host   (works)
+# from inside the LAN, by IP: client -> LAN IP:port directly                        (works)
+# from inside the LAN, by domain -> resolves to WAN IP -> router has no loopback path -> hangs</code></pre>
+    <h2>The real fix vs. the workarounds</h2>
+    <p>
+      The workarounds — a per-device <code>/etc/hosts</code> override
+      pointing the domain at the LAN IP, or just switching to mobile data
+      to avoid the home network entirely — only patch one device at a
+      time and need to be reapplied on every new client. The actual fix
+      is a local DNS resolver on the LAN (a Pi-hole instance, in this
+      case) with an override that answers the public domain with the
+      internal LAN IP for anyone using it as their DNS server, so every
+      device gets the short path automatically without needing the
+      router to support hairpinning at all.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      If a service works perfectly from outside and by raw IP from
+      inside, but hangs specifically when an internal client uses the
+      public hostname, suspect the router's NAT implementation before
+      digging into the service's own config — it's a routing gap, not an
+      application bug, and no amount of retrying the connection will fix
+      it.
+    </p>
+  </article>
+</main>
+</body>
+</html>
