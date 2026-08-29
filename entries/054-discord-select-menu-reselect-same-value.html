@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a persistent Discord select menu doesn't fire again if you pick the same value twice</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Picking the same ticket category twice in a row did nothing the second time</h2>
+    <p>
+      A ticket-panel bot used a persistent <code>StringSelectMenu</code>
+      for the category picker (Report / Support / Bewerbung / etc.) —
+      one dropdown instead of a row of buttons, since a menu scales
+      better once there are more than three or four categories. It
+      worked the first time a user picked a category. But if a user
+      closed their ticket and then opened a new one by selecting the
+      exact same category from the same menu message, nothing happened —
+      no interaction fired at all client-side, and the bot logged
+      nothing either.
+    </p>
+    <h2>Why: Discord's client only fires on a value change</h2>
+    <p>
+      A select menu's <code>selectMenu</code> interaction event only
+      fires when the chosen option differs from whatever the menu is
+      currently rendering as selected. Since the menu component is
+      persistent (the same message, never re-sent), the client already
+      shows the previous pick as the active value — reselecting the
+      identical option is treated as a no-op by the Discord client
+      itself, and the gateway event is never even sent. This isn't
+      something the bot's own code can special-case around, because it
+      never receives anything to handle in that scenario.
+    </p>
+    <pre><code>// looks reasonable, breaks on repeat-same-value:
+new StringSelectMenuBuilder()
+  .setCustomId('ticket_category')
+  .addOptions(categories.map(c => ({ label: c.name, value: c.id })));
+
+// a button per category has no "current value" to compare against,
+// so every click always fires regardless of what was clicked last:
+categories.map(c =>
+  new ButtonBuilder().setCustomId(`ticket_create_${c.id}`).setLabel(c.name)
+);</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Select menus are the wrong component whenever the same option
+      might legitimately need to be chosen more than once in a row from
+      the same persistent message — panels, repeatable actions, anything
+      that isn't a genuine one-shot settings picker. A button-per-option
+      layout has no stored "current selection" to compare against, so it
+      doesn't have this failure mode at all.
+    </p>
+  </article>
+</main>
+</body>
+</html>

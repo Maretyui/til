@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/054-discord-select-menu-reselect-same-value.html">
+        A persistent Discord select menu doesn't fire again if you pick the same value twice
+        <small>Discord bots — the client only sends the interaction on a value change, so reselecting a repeated ticket category from a persistent menu silently did nothing</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/053-mailcow-forwarding-hosts-redis.html">
         A mailing-list relay needs its own IP allowlisted, or the spam filter silently eats every redistributed copy
         <small>infra — Rspamd's anti-spoof rule fired on the list manager's own unauthenticated relay, dropping every list message with no bounce visible anywhere</small>
