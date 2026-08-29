@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a mailing-list relay needs its own IP allowlisted, or Rspamd silently eats every redistributed copy</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Mail to a list arrived fine, but nobody on the list ever got a copy</h2>
+    <p>
+      A self-hosted mailing list (Mailman sitting behind a Mailcow/Postfix
+      install) accepted incoming mail to the list address without any
+      error — Postfix logs showed a clean <code>status=sent</code> handoff
+      to the list manager container. But the redistributed copies the
+      list manager then tried to send back out to every subscriber never
+      arrived anywhere, with no bounce visible to the original sender
+      either. The failure was completely silent from every angle that
+      would normally surface a delivery problem.
+    </p>
+    <h2>Why: the list manager's own outbound relay looked like spoofing</h2>
+    <p>
+      The redistribution copies go back out through the same Postfix
+      instance, but now with the list's domain in <code>From:</code>/
+      envelope-from and no SASL auth attached (the list manager is just
+      another container on the internal Docker network, not an
+      authenticated mail client). The spam filter's anti-spoofing
+      composite rule fires on exactly that shape — a locally-hosted
+      domain claimed in the headers without authentication — unless the
+      sending container's IP is explicitly allowlisted as a trusted
+      internal forwarder. It wasn't, so every redistributed message
+      scored well past the reject threshold and was dropped before
+      delivery, with the rejection only visible in the spam filter's own
+      internal log, not anywhere a mail admin would normally look first.
+    </p>
+    <pre><code># the fix: add the list manager container's IP to the forwarding-hosts
+# allowlist the spam filter's multimap module reads from
+docker exec redis-mailcow-1 redis-cli -a "$REDISPASS" \
+  HSET WHITELISTED_FWD_HOST 172.22.1.5/32 mailman-core-list
+
+# no filter restart needed — the map is read live on the next message</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any internal service that re-sends mail on behalf of a locally
+      hosted domain — list managers, forwarders, relays — needs to be on
+      the mail server's own trusted-forwarder allowlist, or its anti-spoof
+      rules will treat it exactly like an attacker forging that domain.
+      Test with the filter's own symbol-check tool against the real
+      sending IP before assuming "it sent successfully" means "it was
+      delivered."
+    </p>
+  </article>
+</main>
+</body>
+</html>

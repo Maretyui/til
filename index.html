@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/053-mailcow-forwarding-hosts-redis.html">
+        A mailing-list relay needs its own IP allowlisted, or the spam filter silently eats every redistributed copy
+        <small>infra — Rspamd's anti-spoof rule fired on the list manager's own unauthenticated relay, dropping every list message with no bounce visible anywhere</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/052-pkill-matches-own-command-line.html">
         pkill -f matches against the full command line, including the command doing the killing
         <small>infra — a cleanup pkill -f rollback.sh also matched its own SSH invocation's command-line string, killing the session before the verification step ran</small>
