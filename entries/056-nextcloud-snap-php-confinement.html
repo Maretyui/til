@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a snap's own PHP binary breaks when called directly instead of through its wrapper command</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>occ worked a minute earlier, then the "equivalent" php command didn't</h2>
+    <p>
+      Nextcloud on this server is installed as a snap, and admin tasks
+      normally go through its bundled <code>nextcloud.occ</code> command.
+      Wanting to run one extra PHP one-liner alongside a normal
+      <code>occ</code> call, calling the snap's own PHP binary directly
+      (<code>/snap/nextcloud/current/htdocs/occ</code> via
+      <code>php</code>) seemed like it should behave identically — same
+      files, same install. Instead it failed immediately with a missing
+      shared library error, something like
+      <code>libldap_r-2.4.so.2: cannot open shared object file</code>,
+      even though <code>nextcloud.occ</code> run right before it worked
+      fine for the exact same task.
+    </p>
+    <h2>occ isn't just a shortcut, it's a wrapper into confinement</h2>
+    <p>
+      A snap ships its own runtime and its own copies of shared
+      libraries, wired together with a specific <code>LD_LIBRARY_PATH</code>
+      and mount namespace that only exist inside the snap's confined
+      environment. Commands like <code>nextcloud.occ</code> are wrapper
+      scripts snapd generates that enter that confinement first and then
+      invoke the real PHP binary from inside it. Calling the same PHP
+      binary's path directly from a normal SSH shell skips that setup
+      entirely — the binary runs against the host's own library paths
+      instead of the snap's, and anything the snap's PHP dynamically
+      links against but the host doesn't have installed system-wide just
+      fails to load.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      For any snap-packaged application that bundles its own runtime,
+      reach for the snap's own command aliases
+      (<code>&lt;snapname&gt;.&lt;command&gt;</code>) instead of the
+      underlying interpreter or binary path, even when you can see the
+      exact binary sitting right there on disk. The wrapper isn't
+      optional convenience — it's the only supported entry point into an
+      environment the binary actually depends on.
+    </p>
+  </article>
+</main>
+</body>
+</html>

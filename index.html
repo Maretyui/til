@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/056-nextcloud-snap-php-confinement.html">
+        A snap's own PHP binary breaks when called directly instead of through its wrapper command
+        <small>infra — nextcloud.occ enters the snap's own confined runtime/library paths first; calling the same php binary path directly from SSH skips that and fails on a missing shared library</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/055-fyne-android-aab-bundletool.html">
         fyne-cross's Android -release build outputs a Play Store bundle, not an APK
         <small>dev tooling — an .aab isn't directly installable; bundletool (already in the fyne-cross image) converts it to a sideloadable universal APK</small>
