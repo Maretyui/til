@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: fyne-cross's Android -release build outputs a Play Store bundle, not an APK</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>-release mode built successfully, but there was no .apk anywhere</h2>
+    <p>
+      Cross-compiling a Fyne desktop app for Android with
+      <code>fyne-cross</code> in <code>-release</code> mode (needed for a
+      real signed build targeting a modern SDK, rather than the debug
+      path's hardcoded old <code>targetSdkVersion</code>) finished without
+      errors. But the output directory only contained a single
+      <code>.aab</code> file — trying <code>adb install</code> on it
+      failed immediately with a generic "not a valid APK file" error.
+    </p>
+    <h2>An .aab is a publishing format, not an installable one</h2>
+    <p>
+      An Android App Bundle packages the app as a set of per-device
+      "split" modules (different ABIs, screen densities, languages) that
+      only the Google Play Store's own delivery pipeline knows how to
+      assemble into a device-specific APK at install time. It was never
+      meant to be installed directly — <code>-release</code> mode
+      switched the output format to the Play Store's expected shape, and
+      sideloading just isn't part of that flow at all.
+    </p>
+    <h2>The fix: bundletool builds a universal APK from the bundle</h2>
+    <p>
+      The <code>fyne-cross</code> Android image already ships
+      <code>bundletool</code> at <code>/usr/local/bin/bundletool</code>.
+      It can turn the same signed <code>.aab</code> back into a normal,
+      sideloadable APK:
+    </p>
+    <pre><code>bundletool build-apks \
+  --bundle=app.aab \
+  --output=app.apks \
+  --mode=universal \
+  --ks=release.keystore \
+  --ks-pass=pass:KEYSTORE_PASSWORD \
+  --ks-key-alias=myalias \
+  --key-pass=pass:KEY_PASSWORD
+
+# .apks is itself just a zip — pull the real APK out of it
+unzip app.apks -d app-apks && cp app-apks/universal.apk ./app.apk</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>-release</code> mode isn't just "the more correct debug
+      build" — it changes what kind of artifact comes out entirely.
+      Sideloading a release build needs one extra conversion step that
+      the debug path never required, since debug mode always produced a
+      plain APK to begin with.
+    </p>
+  </article>
+</main>
+</body>
+</html>
