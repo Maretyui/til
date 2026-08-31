@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: pm2 restart doesn't re-read ecosystem.config.js env vars</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>The file on disk was right, the running process wasn't</h2>
+    <p>
+      An API's <code>ecosystem.config.js</code> had a
+      <code>DATABASE_URL</code> pointed at the correct database host —
+      checked it twice, definitely correct. Yet every real request
+      through the app's actual authenticated code path hung for about two
+      minutes before timing out. Unauthenticated requests failed fast and
+      cleanly; raw queries against the database directly were instant.
+      Only the specific path that went through the running Node process
+      was slow, which made "the config is wrong" seem like the wrong
+      theory even though it turned out to be exactly the problem.
+    </p>
+    <h2><code>pm2 restart</code> reuses cached process metadata, not the file</h2>
+    <p>
+      <code>pm2 restart &lt;name&gt;</code> (by name or id) restarts the
+      process using PM2's own in-memory/dumped process description —
+      including whatever environment variables were captured the last
+      time that process was actually started from
+      <code>ecosystem.config.js</code>. Editing the file afterward and
+      running a plain <code>restart</code> does not re-read it. Even
+      <code>pm2 restart &lt;name&gt; --update-env</code> did not pick up
+      the new value in this case — the stale environment had been baked
+      in for weeks, since the last time the process was cold-started from
+      the file.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      When an <code>ecosystem.config.js</code> env var changes and it
+      actually needs to take effect, don't reach for <code>pm2
+      restart</code> at all — <code>pm2 delete &lt;name&gt;</code> first,
+      then <code>pm2 start ecosystem.config.js</code> (or the app's normal
+      start command) to force a real cold start that reads the file fresh,
+      then <code>pm2 save</code>. A years-old, definitely-fine-looking
+      config file is exactly the kind of thing that stops getting
+      double-checked — which is also exactly why this took hours to trace
+      back to something that simple.
+    </p>
+  </article>
+</main>
+</body>
+</html>
