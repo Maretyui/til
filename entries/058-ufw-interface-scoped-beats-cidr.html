@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: scope firewall rules by interface, not by CIDR, when mixing allow and deny on one port</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>The exact rule that worked on one box locked out another</h2>
+    <p>
+      Restricting SSH to a private mesh network across a handful of
+      Linux hosts, the plan was: allow port 22 from the mesh's subnet,
+      then deny it from everywhere else. On the first host this worked
+      fine using rules scoped by source CIDR —
+      <code>ufw allow from 100.64.0.0/10 to any port 22</code> followed
+      by <code>ufw deny to any port 22</code>. Copying the exact same two
+      rules to a second host broke SSH completely, from both the mesh
+      and the LAN, requiring a console session to fix — not the intended
+      "mesh only" outcome, but "nobody."
+    </p>
+    <h2>Rule precedence between an unscoped deny and a scoped allow isn't just "first match wins" the way it looks</h2>
+    <p>
+      <code>ufw</code> is a thin layer over <code>iptables</code>, and how
+      an allow/deny pair for the <em>same port</em> interacts depends on
+      more than just which rule number comes first — a completely
+      unscoped <code>deny</code> for a port and a CIDR-scoped
+      <code>allow</code> for that same port do not always resolve the way
+      the rule list order implies. The fix that actually held, on every
+      host, was switching from CIDR matching to interface matching
+      instead: <code>ufw allow in on tailscale0 to any port 22</code>
+      paired with <code>ufw deny in on eth0 to any port 22</code> (using
+      each host's real LAN interface name). Traffic arriving on the mesh
+      interface and traffic arriving on the LAN interface are
+      unambiguous to the kernel in a way that "does this source IP fall
+      inside this /10" apparently wasn't, in combination with an
+      unscoped deny for the same port.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      When a host needs to accept a service on one network path (mesh,
+      VPN, a specific NIC) and reject it on another, prefer <code>ufw
+      ... in on &lt;interface&gt;</code> rules over CIDR-scoped ones for
+      both the allow and the deny — it removes the ambiguity entirely
+      instead of relying on rule-order intuition that turned out not to
+      hold consistently across hosts with otherwise-identical firewall
+      state.
+    </p>
+  </article>
+</main>
+</body>
+</html>

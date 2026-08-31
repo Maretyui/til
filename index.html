@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/058-ufw-interface-scoped-beats-cidr.html">
+        Scope ufw rules by interface, not CIDR, when mixing allow and deny on one port
+        <small>infra — a CIDR-scoped allow plus an unscoped deny for the same port locked out SSH entirely on a second host; interface-scoped rules (tailscale0 vs eth0) resolved unambiguously instead</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/057-pm2-restart-ignores-ecosystem-env.html">
         pm2 restart doesn't re-read ecosystem.config.js env var changes
         <small>infra — a corrected DATABASE_URL sat unused for weeks because restart reuses PM2's cached process env; only delete + start from the file forces a real reload</small>
