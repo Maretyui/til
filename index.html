@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/060-reverse-proxy-deletes-config-on-failed-reload.html">
+        A reverse proxy admin UI can delete a working config instead of restoring it on a failed reload
+        <small>infra — the database record and UI still looked correct, but a failed nginx syntax check on save left the host with no on-disk config file at all; rebuilding it by hand from the DB fixed it</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/059-docker-container-ip-not-stable.html">
         Hardcoded Docker bridge-network IPs get reassigned after a restart
         <small>infra — two backend game server containers swapped addresses after an unrelated restart, since Docker's bridge IP assignment isn't sticky; switching a proxy config to container-name DNS fixed it for good</small>

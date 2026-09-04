@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a reverse proxy admin UI can delete a working config instead of restoring it when a reload fails</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A working HTTPS host went dark right after a small, unrelated-looking edit in the admin UI</h2>
+    <p>
+      A self-hosted reverse proxy managing a handful of HTTPS hosts had
+      one host edited in its web UI — nothing dramatic, just adding a
+      custom location block. The save appeared to succeed, the UI kept
+      showing the correct settings afterward, but the site immediately
+      started failing TLS handshakes entirely
+      (<code>ERR_SSL_UNRECOGNIZED_NAME_ALERT</code>), as if the
+      certificate for that hostname had vanished.
+    </p>
+    <h2>Why: the underlying web server config file was gone, not just wrong</h2>
+    <p>
+      The proxy's own generated nginx config directory had no file at
+      all for that host anymore. Its database record was still intact
+      and correct — the UI reads from the database, which is why it kept
+      looking fine — but the actual on-disk config nginx uses to route
+      that hostname had been deleted. Tracing through the proxy's own
+      save logic: on every edit it deletes the old config file, generates
+      a new one, and tests it. If the new file fails nginx's own syntax
+      check for any reason, the code deletes the file it just wrote
+      instead of restoring the previous, known-working one — it only
+      logs the failure to an internal field that never surfaces
+      anywhere in the UI. A save that silently fails this way leaves the
+      host with no config file at all, not the old one and not the new
+      one.
+    </p>
+    <pre><code># recovery: hand-write the config file from the still-correct DB record
+sqlite3 database.sqlite "select * from proxy_host where id = N;"
+# rebuild the nginx server block from that data, copy it into
+# the container's config directory, then validate before reloading
+docker exec proxy-app nginx -t
+docker exec proxy-app nginx -s reload</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Don't trust a config-management UI's own "saved successfully"
+      state as proof the underlying service config is actually valid —
+      if a save can ever fail an internal validation step, check whether
+      the tool restores the previous file on failure or just deletes it.
+      When a previously-working host breaks right after an edit with no
+      obvious cause, compare the database's stored config against what's
+      actually on disk before assuming the problem is anywhere else.
+    </p>
+  </article>
+</main>
+</body>
+</html>
