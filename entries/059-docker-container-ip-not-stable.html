@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: hardcoded Docker bridge-network IPs get reassigned to a different container after a restart</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Two game server containers swapped addresses and started answering for each other</h2>
+    <p>
+      A Velocity-style Minecraft proxy config pointed at a couple of
+      backend game server containers by hardcoded bridge-network IP —
+      something like <code>172.18.0.2:25566</code> for one server and
+      <code>172.18.0.3:25566</code> for another. It worked fine right up
+      until an unrelated round of container restarts, after which players
+      trying to join one server landed on the other, and the proxy logs
+      started showing intermittent <code>Connection refused</code> /
+      <code>NoRouteToHost</code> errors that looked exactly like a flaky
+      network, not a config problem.
+    </p>
+    <h2>Why: Docker's bridge-network IP assignment isn't sticky across restarts</h2>
+    <p>
+      Docker hands out bridge-network IPs from a pool at container start,
+      in whatever order containers happen to come up — nothing guarantees
+      the same container gets the same address twice. Two containers
+      restarting in a different order than usual was enough for their
+      addresses to literally swap, and a proxy config written against a
+      fixed IP had no way to notice the ground had shifted under it.
+    </p>
+    <pre><code># fragile — an IP that only happens to be correct right now
+[servers]
+survival = "172.18.0.2:25566"
+
+# stable — Docker's own embedded DNS resolves the container's name
+# (or a fixed identifier assigned to it) to whatever its current IP is
+[servers]
+survival = "survival-backend:25566"</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Never hardcode a container's bridge-network IP into another
+      service's config, even one that "hasn't changed in months" — use
+      the container's own name (or another stable identifier Docker's
+      built-in DNS can resolve) instead. It costs nothing on a healthy
+      network and completely removes this class of bug, which otherwise
+      only ever shows up after the fact, disguised as a networking
+      problem rather than a config one.
+    </p>
+  </article>
+</main>
+</body>
+</html>
