@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/061-mail-forwarding-whitelist-subnet-not-ip.html">
+        Whitelist a mail relay's whole Docker subnet, not its container's single IP
+        <small>infra — a forwarding-host allowlist keyed to one container's /32 stopped matching after a routine restart, silently dropping every list email again</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/060-reverse-proxy-deletes-config-on-failed-reload.html">
         A reverse proxy admin UI can delete a working config instead of restoring it on a failed reload
         <small>infra — the database record and UI still looked correct, but a failed nginx syntax check on save left the host with no on-disk config file at all; rebuilding it by hand from the DB fixed it</small>

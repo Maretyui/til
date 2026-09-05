@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: whitelist a mail relay's whole Docker subnet, not its container's single IP</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Mailing-list redistribution silently vanished — twice</h2>
+    <p>
+      A self-hosted mail stack redistributes list mail through a separate
+      list-manager container, which hands the message back to the main
+      mail server to actually deliver to subscribers. The very first time
+      this was wired up, every single redistributed copy got hard-rejected
+      by the spam filter with a spoofing violation — the sender saw
+      "delivered," but no subscriber ever received anything, and there
+      was no bounce to notice. Fixed once by explicitly trusting the
+      list-manager container's IP as an allowed internal relay. Weeks
+      later, it broke again in exactly the same way, with no config
+      changes on the mail side at all.
+    </p>
+    <h2>Why: a spam filter rule that only locally-hosted domains without
+    authentication are allowed to claim, plus a container IP used as the
+    trust boundary</h2>
+    <p>
+      The spam filter fires whenever a message claims a domain the server
+      itself hosts in its From/envelope-from without real SMTP auth —
+      correct behavior for anything arriving from the outside world, but
+      it also catches a list manager relaying mail right back to the same
+      server on the list's own behalf. The fix for that is a forwarding-host
+      allowlist, which was set correctly... as a single container IP.
+      That container got recreated (a routine restart), Docker's bridge
+      network hands out addresses fresh each time, and the allowlisted
+      /32 simply stopped matching anything real. Same root cause as
+      hardcoding a container IP anywhere else, just discovered a second
+      time in a different subsystem.
+    </p>
+    <pre><code># fragile — matches only until this one container is ever recreated
+172.20.0.5/32  "list-manager - trusted relay"
+
+# stable — survives any container restart/recreate on this network,
+# and only the mail stack's own containers ever sit on it anyway
+172.20.0.0/24  "mail-internal docker network - IP-stable"</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      When a trust rule has to key off a container's address rather than
+      its name, key off the whole subnet the relevant containers live on
+      instead of one container's current IP — the subnet is stable, the
+      IP inside it isn't. And when recovering from a "some mail is quietly
+      never delivered" incident, don't stop at the fix: also clear out
+      whatever penalty the outage itself accumulated (bounce counters,
+      auto-disabled subscriptions) or the very next transient failure
+      re-triggers the same symptom for everyone all over again.
+    </p>
+  </article>
+</main>
+</body>
+</html>
