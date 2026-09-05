@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Laravel app behind a reverse proxy needs trusted proxies wired into the framework, not just a config file</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>File uploads through signed URLs kept failing with a bare 401, no explanation</h2>
+    <p>
+      A Laravel-based admin panel sits behind a reverse proxy that
+      terminates HTTPS and forwards plain HTTP internally — completely
+      standard. Most of the app worked fine, but one feature relying on
+      Laravel's signed URLs (an upload widget verifying a time-limited
+      signed request) failed every time with a silent 401 and no
+      useful error in the logs. A settings page in the app even had a
+      "trusted proxies" field, already filled in with the proxy's IP,
+      which made the failure look impossible at first.
+    </p>
+    <h2>Why: the settings field existed but was never actually connected to the framework</h2>
+    <p>
+      The app had a config file and a UI field for trusted proxies, but
+      the actual framework-level call that makes Laravel honor
+      forwarded-request headers was simply missing from the app's
+      bootstrap code. Without it, Laravel builds signed URLs and later
+      validates them using the connection it directly sees — the plain
+      HTTP request from the proxy — rather than the real HTTPS scheme
+      and host the browser used. A signature computed against
+      <code>https://host/...</code> doesn't match validation performed
+      against <code>http://host/...</code>, so it fails silently as an
+      invalid signature, which surfaces as a generic 401 with nothing
+      pointing at the actual mismatch.
+    </p>
+    <pre><code>// looked configured (config file + UI field), but nothing
+// in the app ever actually called this:
+$middleware->trustProxies(
+    at: array_filter(explode(',', (string) env('TRUSTED_PROXIES', '')))
+);</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A framework config value or admin-UI field existing is not proof
+      it's wired up — some settings are just data until a specific
+      framework call actually reads and applies them. When anything
+      relying on the "real" scheme/host/IP behind a reverse proxy
+      misbehaves (signed URLs, redirects, rate limiting by IP), verify
+      the trusted-proxy middleware is genuinely registered in the app's
+      bootstrap, not just present as a config value that looks correct.
+    </p>
+  </article>
+</main>
+</body>
+</html>

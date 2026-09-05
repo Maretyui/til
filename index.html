@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/062-laravel-trusted-proxies-signed-urls.html">
+        A Laravel app behind a reverse proxy needs trusted proxies wired into the framework, not just a config file
+        <small>infra — a settings-page field for it existed, but the actual middleware call was never registered, so signed URL validation silently failed against the wrong scheme/host</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/061-mail-forwarding-whitelist-subnet-not-ip.html">
         Whitelist a mail relay's whole Docker subnet, not its container's single IP
         <small>infra — a forwarding-host allowlist keyed to one container's /32 stopped matching after a routine restart, silently dropping every list email again</small>
