@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Zod's z.coerce.number() turns an empty optional field into 0, not undefined</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>An optional number field was silently defaulting to zero</h2>
+    <p>
+      A form had a genuinely optional numeric field — leave it blank
+      and it should just stay unset in the database. The API route
+      validated the request body with a Zod schema using
+      <code>z.coerce.number().optional()</code>. Leaving the field
+      empty in the form worked fine in casual testing... except every
+      row that skipped the field ended up with a real <code>0</code>
+      stored, not <code>null</code>. Nobody had entered a zero on
+      purpose.
+    </p>
+    <h2>Why: an empty form field arrives as an empty string, and Number("") is 0</h2>
+    <p>
+      HTML forms always submit text. A field left blank doesn't arrive
+      as <code>undefined</code> — it arrives as the empty string
+      <code>""</code>. <code>z.coerce.number()</code> coerces by
+      running the input through JavaScript's own <code>Number()</code>,
+      and <code>Number("")</code> evaluates to <code>0</code>, not
+      <code>NaN</code> and not <code>undefined</code>. So the value
+      passes validation cleanly as a normal, intentional zero, and
+      `.optional()` never even gets a chance to apply — the field
+      was never actually undefined by the time Zod's optional check
+      ran.
+    </p>
+    <pre><code>// silently turns a blank field into 0:
+const schema = z.object({
+  heightCm: z.coerce.number().optional(),
+});
+
+// fixed: normalize "" to undefined before coercion runs
+const schema = z.object({
+  heightCm: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number().optional()
+  ),
+});</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any optional numeric field fed by an HTML form needs an explicit
+      empty-string-to-undefined step before <code>z.coerce.number()</code>
+      ever sees it — the coercion itself won't do it for you, and the
+      resulting bad value (a real, valid-looking <code>0</code>) won't
+      throw anywhere, it'll just sit quietly in the data. Worth
+      double-checking every optional numeric field in a schema for this
+      exact pattern, not just the one that got caught.
+    </p>
+  </article>
+</main>
+</body>
+</html>
