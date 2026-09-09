@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/064-pm2-restart-does-not-reread-ecosystem-config.html">
+        pm2 restart doesn't re-read ecosystem.config.js — it reapplies PM2's cached env
+        <small>infra — an updated DATABASE_URL in the config file had no effect on the running process; only pm2 delete followed by a fresh pm2 start from the file actually reloads its environment</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/063-zod-coerce-number-empty-string.html">
         Zod's z.coerce.number() turns an empty optional field into 0, not undefined
         <small>bug — an HTML form's blank field arrives as an empty string, and Number("") is 0, so an "optional" numeric field silently became a real zero in the database until a preprocess step normalized "" to undefined first</small>
