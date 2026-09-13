@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: A misnamed env var can hide behind its own fallback default for months</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A web UI in front of a REST API started failing auth out of nowhere</h2>
+    <p>
+      A small Docker Compose stack had a backend container exposing a
+      REST API, and a separate web-UI container that talked to it
+      using basic auth. Both containers had been running fine for
+      months. Then, after rotating the backend's admin password, the
+      web UI broke completely — every page showed a generic
+      "authorization failed" error, and on top of that the browser
+      kept re-prompting for the site's own unrelated HTTP basic-auth
+      credentials, which made the first few minutes of debugging chase
+      the wrong layer entirely.
+    </p>
+    <h2>Why: three env vars in the compose file didn't match what the image actually reads</h2>
+    <p>
+      The web UI's compose service set <code>API_AUTH_URL</code>,
+      <code>API_AUTH_USER</code>, and <code>API_AUTH_PASSWORD</code>.
+      The application inside the image, though, reads
+      <code>AUTH_URL</code>, <code>AUTH_USER</code>, and
+      <code>AUTH_PASSWORD</code> — no <code>API_</code> prefix. Since
+      none of the set variables matched, the app silently fell back to
+      its own hardcoded defaults, which happened to already be
+      correct for months by pure coincidence (the default user/URL
+      matched, and the default password was — until that day — also
+      the real one). The mismatch was invisible until the real
+      password actually changed and the stale fallback stopped being
+      right.
+    </p>
+    <pre><code># set, but never read by the app — three extra characters, silently ignored
+API_AUTH_URL=http://backend:8080
+API_AUTH_USER=admin
+API_AUTH_PASSWORD=changeme
+
+# what the image's own settings loader actually looks for
+AUTH_URL=http://backend:8080
+AUTH_USER=admin
+AUTH_PASSWORD=changeme</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      When a value seems to load correctly for a long time, that isn't
+      proof the wiring is right — it can just mean the code's own
+      fallback happens to agree with the intended value for now. The
+      way to tell them apart is to inspect what the running process
+      actually loaded (e.g. dump the resolved setting from inside the
+      container) rather than only checking what's set in the compose
+      file or the environment. A value that's correct by coincidence
+      looks identical to one that's correctly wired, right up until
+      the coincidence ends.
+    </p>
+  </article>
+</main>
+</body>
+</html>
