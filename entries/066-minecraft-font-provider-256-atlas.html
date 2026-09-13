@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Minecraft bitmap font glyphs must fit inside a 256x256 atlas page</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A server logo baked into a resource pack's tab-list header never showed up</h2>
+    <p>
+      A Minecraft server used a bitmap font provider in its resource
+      pack to swap one rarely-used Unicode character for a small logo
+      image, so a plugin could drop that character into the tab-list
+      header and have players see a graphic instead of text. The pack
+      loaded without any error, and the character rendered fine as
+      blank space — but the logo itself never appeared, on any client,
+      for weeks.
+    </p>
+    <h2>Why: the source image was way bigger than a font atlas page</h2>
+    <p>
+      Minecraft's font system packs bitmap glyphs into atlas textures
+      in <code>256×256</code> pixel pages. A provider image with any
+      dimension larger than that doesn't get scaled down or tiled —
+      it's simply skipped, with nothing written to the log. The source
+      logo here was <code>1672×941</code>, more than six atlas pages
+      wide, so it silently failed to load while the rest of the pack
+      (including the font entry's fallback blank glyph) kept working
+      normally.
+    </p>
+    <pre><code>{
+  "providers": [
+    {
+      "type": "bitmap",
+      "file": "custom:logo.png",
+      "ascent": 31,
+      "height": 56,
+      "chars": ["㍿"]
+    }
+  ]
+}
+// logo.png itself must be at most 256x256 — the "height" field only
+// controls the rendered line-height, not the source resolution</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Resize the source texture down to fit within one
+      <code>256×256</code> atlas page first, independent of how large
+      it should visually render — the <code>height</code>/
+      <code>ascent</code> fields in the provider entry only scale and
+      vertically position the glyph within a line of text, they don't
+      relax the hard size cap on the underlying image. A pack that
+      loads with zero errors is not the same as a pack whose every
+      provider actually got applied — worth a visual check in-game
+      after any font-provider change, not just a pack-format
+      validation pass.
+    </p>
+  </article>
+</main>
+</body>
+</html>

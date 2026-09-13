@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/066-minecraft-font-provider-256-atlas.html">
+        Minecraft bitmap font glyphs must fit inside a 256x256 atlas page
+        <small>Minecraft server administration — a resource-pack logo swapped in via a bitmap font provider never rendered because the source image was over 1600px wide, six atlas pages too big, and got silently skipped with no error</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/065-docker-image-env-var-typo-fallback.html">
         A misnamed env var can hide behind its own fallback default for months
         <small>infra — three compose env vars had an extra prefix the image never read, so the app silently ran on its hardcoded defaults until the real value changed and stopped matching by coincidence</small>
