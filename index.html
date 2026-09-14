@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/068-multi-san-cert-one-dead-name-fails-all.html">
+        One dead name in a multi-domain cert fails renewal for all of them
+        <small>infra — several unrelated healthy domains expired together because they shared one certificate's SAN list, and a single decommissioned hostname on it failed the whole HTTP-01 order</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/067-nginx-stream-proxy-pass-startup-resolve.html">
         nginx resolves a bare hostname in proxy_pass once, at startup
         <small>infra — one offline backend behind a raw TCP stream took the whole reverse proxy's nginx down with it, because a literal hostname is only resolved when the process starts, not per-connection</small>

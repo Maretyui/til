@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: one dead name in a multi-domain cert fails renewal for all of them</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Several healthy domains went down together, all sharing one certificate</h2>
+    <p>
+      A handful of unrelated-looking domains started serving an
+      expired TLS certificate at the same time. Nothing about their
+      own DNS or web server config had changed recently, which made it
+      look like several independent failures happening to line up on
+      the same day.
+    </p>
+    <h2>Why: they were all Subject Alternative Names on one certificate order</h2>
+    <p>
+      A single Let's Encrypt certificate can cover many hostnames at
+      once via its Subject Alternative Name (SAN) list, and renewal
+      requests all of them together as one order. One of the names on
+      that list had been decommissioned — its DNS record was gone —
+      but it had never been removed from the certificate's SAN list.
+      Certbot's HTTP-01 challenge has to succeed for every single name
+      in the order, so the one unreachable name failed the whole
+      renewal, and every other perfectly healthy domain sharing that
+      certificate expired right along with it.
+    </p>
+    <pre><code># the renewal log shows the real reason near the top, not the
+# generic failure summary at the very end:
+grep -E '"detail"|Challenge failed for domain' letsencrypt.log
+
+# removing one SAN isn't something `certbot renew` can do —
+# it needs a fresh order with the reduced name list:
+certbot certonly --cert-name mycert --authenticator webroot \
+  --webroot-path /var/www/acme-challenge \
+  -d still-live-a.example.com -d still-live-b.example.com
+  # (dead-name.example.com deliberately left out)</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A multi-SAN certificate is a single point of failure shared by
+      every hostname on it, not just a convenience for grouping
+      related domains under one order. Decommissioning a domain should
+      include pruning it from any certificate's SAN list immediately,
+      not just deleting its DNS record and reverse-proxy entry —
+      otherwise the next routine renewal is the thing that quietly
+      takes down everything else riding along with it.
+    </p>
+  </article>
+</main>
+</body>
+</html>
