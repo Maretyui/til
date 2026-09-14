@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/067-nginx-stream-proxy-pass-startup-resolve.html">
+        nginx resolves a bare hostname in proxy_pass once, at startup
+        <small>infra — one offline backend behind a raw TCP stream took the whole reverse proxy's nginx down with it, because a literal hostname is only resolved when the process starts, not per-connection</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/066-minecraft-font-provider-256-atlas.html">
         Minecraft bitmap font glyphs must fit inside a 256x256 atlas page
         <small>Minecraft server administration — a resource-pack logo swapped in via a bitmap font provider never rendered because the source image was over 1600px wide, six atlas pages too big, and got silently skipped with no error</small>

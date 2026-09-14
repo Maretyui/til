@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: nginx resolves a bare hostname in proxy_pass once, at startup</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>One offline backend killed every site on the reverse proxy, not just its own</h2>
+    <p>
+      A TCP stream (a raw port forward, separate from the normal
+      HTTP(S) proxy hosts) pointed at a backend by hostname. That
+      backend host happened to be off for an unrelated reason, so its
+      hostname briefly stopped resolving. Instead of just that one
+      stream failing, the whole reverse proxy's nginx process refused
+      to start at all — meaning every other proxied domain on the same
+      box went down with it, admin UI included.
+    </p>
+    <h2>Why: a bare hostname in proxy_pass is resolved once, at config load</h2>
+    <p>
+      A plain <code>proxy_pass http://backend:port;</code> (or its
+      stream-block equivalent) asks nginx to resolve that name during
+      config parsing, before the server even starts accepting
+      connections. If the name doesn't resolve at that exact moment,
+      nginx logs <code>host not found in upstream</code> and exits —
+      it does not fall back to trying again later, and it does not
+      isolate the failure to just that one server block.
+    </p>
+    <pre><code>server {
+  listen 25565;
+  # resolved ONCE, when nginx starts/reloads:
+  proxy_pass backend.internal:25565;
+}
+
+server {
+  listen 25565;
+  # resolved on EVERY connection, using the given DNS resolver:
+  resolver 100.100.100.100 valid=10s;
+  set $upstream backend.internal;
+  proxy_pass $upstream:25565;
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Any dynamic hostname in a <code>proxy_pass</code> — one that
+      might legitimately be offline sometimes — should go through a
+      <code>resolver</code> directive plus an nginx variable instead of
+      being written literally. The variable form defers resolution to
+      request time using the given DNS resolver, so a temporarily-dead
+      backend just fails that one connection instead of preventing the
+      entire process from starting. Worth checking any proxy
+      config template that generates these blocks automatically, since
+      the bug is invisible until the one backend it points at happens
+      to be down at exactly the moment the proxy itself restarts.
+    </p>
+  </article>
+</main>
+</body>
+</html>
