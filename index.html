@@ -51,51 +51,15 @@
       </a>
     </li>
     <li>
-      <a href="entries/064-pm2-restart-does-not-reread-ecosystem-config.html">
-        pm2 restart doesn't re-read ecosystem.config.js — it reapplies PM2's cached env
-        <small>infra — an updated DATABASE_URL in the config file had no effect on the running process; only pm2 delete followed by a fresh pm2 start from the file actually reloads its environment</small>
-      </a>
-    </li>
-    <li>
       <a href="entries/063-zod-coerce-number-empty-string.html">
         Zod's z.coerce.number() turns an empty optional field into 0, not undefined
         <small>bug — an HTML form's blank field arrives as an empty string, and Number("") is 0, so an "optional" numeric field silently became a real zero in the database until a preprocess step normalized "" to undefined first</small>
       </a>
     </li>
     <li>
-      <a href="entries/062-laravel-trusted-proxies-signed-urls.html">
-        A Laravel app behind a reverse proxy needs trusted proxies wired into the framework, not just a config file
-        <small>infra — a settings-page field for it existed, but the actual middleware call was never registered, so signed URL validation silently failed against the wrong scheme/host</small>
-      </a>
-    </li>
-    <li>
       <a href="entries/061-mail-forwarding-whitelist-subnet-not-ip.html">
         Whitelist a mail relay's whole Docker subnet, not its container's single IP
         <small>infra — a forwarding-host allowlist keyed to one container's /32 stopped matching after a routine restart, silently dropping every list email again</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/060-reverse-proxy-deletes-config-on-failed-reload.html">
-        A reverse proxy admin UI can delete a working config instead of restoring it on a failed reload
-        <small>infra — the database record and UI still looked correct, but a failed nginx syntax check on save left the host with no on-disk config file at all; rebuilding it by hand from the DB fixed it</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/059-docker-container-ip-not-stable.html">
-        Hardcoded Docker bridge-network IPs get reassigned after a restart
-        <small>infra — two backend game server containers swapped addresses after an unrelated restart, since Docker's bridge IP assignment isn't sticky; switching a proxy config to container-name DNS fixed it for good</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/058-ufw-interface-scoped-beats-cidr.html">
-        Scope ufw rules by interface, not CIDR, when mixing allow and deny on one port
-        <small>infra — a CIDR-scoped allow plus an unscoped deny for the same port locked out SSH entirely on a second host; interface-scoped rules (tailscale0 vs eth0) resolved unambiguously instead</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/057-pm2-restart-ignores-ecosystem-env.html">
-        pm2 restart doesn't re-read ecosystem.config.js env var changes
-        <small>infra — a corrected DATABASE_URL sat unused for weeks because restart reuses PM2's cached process env; only delete + start from the file forces a real reload</small>
       </a>
     </li>
     <li>
@@ -159,27 +123,9 @@
       </a>
     </li>
     <li>
-      <a href="entries/046-rspamd-spoofed-unauth-mailing-list.html">
-        Rspamd silently drops mailing-list redistribution unless the list server's IP is forwarding-allowlisted
-        <small>infra/mail — a resent message keeps the original From:, which Rspamd's SPOOFED_UNAUTH composite treats as spoofing unless the relaying host is explicitly allowlisted as a trusted forwarder</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/045-wordpress-siteurl-constant-override.html">
-        WordPress's WP_SITEURL/WP_HOME constants silently override the DB options of the same name
-        <small>web dev — a defined constant wins over wp_options unconditionally, and wp option get reads back the effective (constant) value, making a successful-looking DB update a no-op</small>
-      </a>
-    </li>
-    <li>
       <a href="entries/044-nextjs-metadatabase-og-images.html">
         Next.js's Metadata API resolves relative Open Graph images against localhost without metadataBase
         <small>web dev — a missing metadataBase silently resolves relative openGraph/twitter image paths against localhost:3000 in production, breaking link previews</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/043-ufw-interface-vs-cidr-precedence.html">
-        ufw's rule order doesn't behave the same for CIDR-scoped and interface-scoped rules
-        <small>infra — an unscoped deny beat a CIDR-scoped allow on one host and locked out SSH entirely, interface-scoped rules fixed it</small>
       </a>
     </li>
     <li>
@@ -255,12 +201,6 @@
       </a>
     </li>
     <li>
-      <a href="entries/030-npm-deletes-config-on-failed-test.html">
-        Nginx Proxy Manager can silently delete a working config on save
-        <small>infra — a failed nginx syntax test after an edit leaves the proxy host with no config file at all, with no warning in the UI</small>
-      </a>
-    </li>
-    <li>
       <a href="entries/029-docker-bypasses-ufw.html">
         Docker's iptables rules bypass ufw port filtering entirely
         <small>infra — Docker's own DNAT chain runs ahead of ufw, so a "deny" rule for a published port can silently do nothing</small>
@@ -270,12 +210,6 @@
       <a href="entries/028-pelican-wings-upload-download-routes.html">
         Pelican's file upload/download aren't under /api/servers like everything else
         <small>infra — Wings serves file transfer from its own top-level /upload and /download paths, which a single /api/servers proxy rule silently misses</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/027-pm2-update-env-ecosystem-config.html">
-        pm2 restart --update-env doesn't always re-read ecosystem.config.js
-        <small>infra — a DATABASE_URL fix on disk never reached the running process; only pm2 delete + pm2 start from the config file rebuilt it correctly</small>
       </a>
     </li>
     <li>
@@ -303,12 +237,6 @@
       </a>
     </li>
     <li>
-      <a href="entries/022-rspamd-spoofed-unauth-forwarding.html">
-        Rspamd silently drops internal relay mail that claims a local domain in From: without SASL auth
-        <small>infra — a mailing list's redistributed copies vanished with no bounce; fixed by allowlisting the relay's source IP in Rspamd's forwarding-host map</small>
-      </a>
-    </li>
-    <li>
       <a href="entries/021-ufw-interface-vs-cidr-precedence.html">
         ufw's CIDR-scoped allow and an unscoped deny for the same port don't behave like rule order implies
         <small>infra — an allow-from-CIDR + deny-all pair for SSH locked out both trusted and untrusted clients; scoping both rules by interface instead fixed it</small>
@@ -330,12 +258,6 @@
       <a href="entries/018-postgres-public-connect-privilege.html">
         A fresh Postgres database is connectable by every role on the cluster unless you revoke it
         <small>infra — CREATE DATABASE grants CONNECT to PUBLIC by default, so "one database per app" isn't isolated until you revoke it explicitly</small>
-      </a>
-    </li>
-    <li>
-      <a href="entries/017-pm2-restart-update-env.html">
-        pm2 restart keeps the environment from the first pm2 start, not the current shell
-        <small>infra — a rotated SMTP password never took effect until --update-env forced PM2 to re-capture the env on restart</small>
       </a>
     </li>
     <li>
