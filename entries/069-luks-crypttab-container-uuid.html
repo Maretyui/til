@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: crypttab needs the LUKS container's UUID, not the filesystem's</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>An encrypted drive that opened fine by hand, but silently stayed locked on boot</h2>
+    <p>
+      After putting LUKS2 full-disk encryption on an external backup drive,
+      manually running <code>cryptsetup luksOpen</code> and mounting it
+      worked every time. But a fresh reboot left the mapped device missing
+      entirely — no error, the automount unit just had nothing to attach
+      to, as if the entry didn't exist.
+    </p>
+    <h2>Why: two different UUIDs live on the same physical disk</h2>
+    <p>
+      A LUKS-encrypted disk actually has two UUIDs: one for the LUKS
+      container itself (what <code>blkid</code> reports for the raw
+      partition, e.g. <code>/dev/sda1</code>), and a completely separate
+      one for the filesystem that lives <em>inside</em> the decrypted
+      container (what shows up once it's mapped to
+      <code>/dev/mapper/&lt;name&gt;</code>). It's easy to grab the wrong
+      one from a quick <code>lsblk -f</code> glance, since both look like
+      valid UUIDs sitting on the same device.
+    </p>
+    <p>
+      <code>/etc/crypttab</code> needs the outer LUKS container's UUID —
+      the one <code>cryptsetup</code> itself unlocks. Point it at the
+      inner filesystem UUID instead, and <code>systemd-cryptsetup</code>
+      fails to find anything matching that identifier at boot, so the
+      mapped device is just never created. No error surfaces because, as
+      far as boot is concerned, there was nothing to open.
+    </p>
+    <pre><code># get both, don't assume which one you're looking at:
+lsblk -f
+#   /dev/sda1        crypto_LUKS  <container-uuid>   &lt;- this one, for crypttab
+#   /dev/mapper/name  ext4        <filesystem-uuid>  &lt;- not this one
+
+# /etc/crypttab
+backup-hdd UUID=&lt;container-uuid&gt; /etc/luks/backup-hdd.key luks,nofail
+
+# verify the mapped device actually exists after a real reboot,
+# don't just trust a manual `cryptsetup open` test:
+findmnt /mnt/backup-hdd   # should show /dev/mapper/backup-hdd as the source</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      When a config file wants a UUID and the same physical device
+      legitimately has more than one, don't grab the first UUID a
+      listing tool shows — confirm which layer it belongs to. A manual
+      unlock test isn't a substitute for a real reboot test either: it
+      exercises the crypto layer but not the automount path that only
+      runs during actual boot.
+    </p>
+  </article>
+</main>
+</body>
+</html>

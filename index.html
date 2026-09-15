@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/069-luks-crypttab-container-uuid.html">
+        crypttab needs the LUKS container's UUID, not the filesystem's
+        <small>infra — an encrypted drive unlocked fine by hand but stayed unmapped after every real reboot, because crypttab was pointed at the inner filesystem's UUID instead of the outer LUKS container's</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/068-multi-san-cert-one-dead-name-fails-all.html">
         One dead name in a multi-domain cert fails renewal for all of them
         <small>infra — several unrelated healthy domains expired together because they shared one certificate's SAN list, and a single decommissioned hostname on it failed the whole HTTP-01 order</small>
