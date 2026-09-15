@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a REST API's DELETE can silently ignore its request body</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A cleanup job that reported success but never actually ran</h2>
+    <p>
+      A backup-pruning script called an API endpoint with
+      <code>DELETE</code> and a request body carrying the retention
+      rules, exactly the same shape used for the read-only dry-run
+      preview of the same endpoint (a <code>GET</code> with the same
+      body). The response came back <code>200</code> with no error.
+      Storage usage afterward hadn't budged at all — and stayed
+      unbudged after several repeat runs, which is what eventually made
+      it obvious that "200 OK" didn't mean what it looked like it meant.
+    </p>
+    <h2>Why: this HTTP client only put params in the body, and DELETE never reads it</h2>
+    <p>
+      Plenty of server frameworks — and the HTTP spec itself leaves this
+      genuinely ambiguous — don't parse a request body on
+      <code>DELETE</code> requests at all, since a body on a delete-by-
+      identifier call is unusual enough that many implementations don't
+      bother. The client library being used sent the same parameter set
+      as either a JSON body or a query string depending on which was
+      passed to it, and for this one call it silently defaulted to body
+      form. The server accepted the connection, found no query
+      parameters to act on, and — instead of rejecting the request —
+      just performed a no-op delete of nothing and returned a normal
+      success code.
+    </p>
+    <pre><code># looked identical, behaved completely differently:
+curl -X DELETE 'https://host/api/prune' --data-urlencode 'rules=keep-daily=7'
+# -> 200, does nothing, no error surfaced anywhere
+
+curl -X DELETE 'https://host/api/prune?rules=keep-daily=7'
+# -> 200, actually prunes
+
+# the safe way to confirm a body-vs-query mismatch: diff the
+# GET dry-run's reported actions against what changed afterward,
+# don't just trust the DELETE call's own status code</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A <code>200</code> response proves the request was received, not
+      that it did what the caller intended — especially for HTTP methods
+      where body support is inconsistent across servers and client
+      libraries. When a destructive/cleanup call's effect can't be
+      directly observed in the response itself, verify against a
+      real before/after state change, not just the absence of an error.
+    </p>
+  </article>
+</main>
+</body>
+</html>
