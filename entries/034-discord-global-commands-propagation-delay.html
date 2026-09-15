@@ -56,9 +56,8 @@
     <p>
       <code>guild.commands.set()</code> registers commands against a
       single guild ID and updates there essentially instantly — this is
-      why every bot's dev workflow (and this fleet's own ticket-core
-      test deployment) registers commands per-guild rather than
-      globally. <code>client.application.commands.set()</code> (or the
+      why most bots' dev workflows register commands per-guild rather
+      than globally. <code>client.application.commands.set()</code> (or the
       REST equivalent hitting
       <code>/applications/{id}/commands</code> with no guild ID)
       registers them for <em>every</em> server the bot is in at once,

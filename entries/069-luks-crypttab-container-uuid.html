@@ -75,11 +75,11 @@ lsblk -f
 #   /dev/mapper/name  ext4        <filesystem-uuid>  &lt;- not this one
 
 # /etc/crypttab
-backup-hdd UUID=&lt;container-uuid&gt; /etc/luks/backup-hdd.key luks,nofail
+backup UUID=&lt;container-uuid&gt; /etc/luks/backup.key luks,nofail
 
 # verify the mapped device actually exists after a real reboot,
 # don't just trust a manual `cryptsetup open` test:
-findmnt /mnt/backup-hdd   # should show /dev/mapper/backup-hdd as the source</code></pre>
+findmnt /mnt/backup   # should show /dev/mapper/backup as the source</code></pre>
     <h2>The actual lesson</h2>
     <p>
       When a config file wants a UUID and the same physical device

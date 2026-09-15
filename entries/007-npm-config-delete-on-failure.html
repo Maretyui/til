@@ -76,13 +76,13 @@
       container, bypassing NPM's own broken regeneration path:
     </p>
     <pre><code># read the stored proxy host settings
-sqlite3 /opt/npm/data/database.sqlite \
-  "select * from proxy_host where id = 28;"
+sqlite3 ./data/database.sqlite \
+  "select * from proxy_host where id = 12;"
 
-# write proxy_host/28.conf by hand based on that record, then:
-docker cp 28.conf npm-app-1:/data/nginx/proxy_host/28.conf
-docker exec npm-app-1 nginx -t
-docker exec npm-app-1 nginx -s reload</code></pre>
+# write proxy_host/12.conf by hand based on that record, then:
+docker cp 12.conf npm:/data/nginx/proxy_host/12.conf
+docker exec npm nginx -t
+docker exec npm nginx -s reload</code></pre>
     <p>
       Worth checking for this specific failure mode any time a proxy
       host edit "saves fine" in NPM's UI but the site immediately starts

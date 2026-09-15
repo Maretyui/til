@@ -62,7 +62,7 @@
       <code>ufw</code> supports scoping a rule to a specific source, not
       just a bare port number:
     </p>
-    <pre><code>ufw allow from 192.168.178.28 to any port 3000 proto tcp</code></pre>
+    <pre><code>ufw allow from 192.168.1.10 to any port 3000 proto tcp</code></pre>
     <p>
       This only admits traffic whose source IP is the proxy box itself —
       everyone else's connection attempt to port 3000 on this host gets

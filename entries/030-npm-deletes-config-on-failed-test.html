@@ -69,7 +69,7 @@
     <p>
       Checked directly inside the NPM container:
     </p>
-    <pre><code>docker exec npm-app-1 ls /data/nginx/proxy_host/</code></pre>
+    <pre><code>docker exec npm ls /data/nginx/proxy_host/</code></pre>
     <p>
       The file for that host's ID was genuinely missing, even though the
       UI's edit form still rendered every field as if it were live.
@@ -80,9 +80,9 @@
       SQLite file, mounted on the host) and dropped it straight into the
       container, then verified and reloaded manually:
     </p>
-    <pre><code>docker cp fixed-host.conf npm-app-1:/data/nginx/proxy_host/28.conf
-docker exec npm-app-1 nginx -t
-docker exec npm-app-1 nginx -s reload</code></pre>
+    <pre><code>docker cp fixed-host.conf npm:/data/nginx/proxy_host/12.conf
+docker exec npm nginx -t
+docker exec npm nginx -s reload</code></pre>
     <h2>The actual lesson</h2>
     <p>
       A proxy host that "looks correct" in NPM's admin UI after a save
