@@ -75,7 +75,7 @@
       the next Docker upgrade), bind the published port to a single
       specific interface IP instead of the default <code>0.0.0.0</code>:
     </p>
-    <pre><code>docker run -p 100.64.0.5:8085:80 ...</code></pre>
+    <pre><code>docker run -p 100.64.0.20:8085:80 ...</code></pre>
     <p>
       With an explicit bind address, the container is only reachable via
       that one interface — no DNAT rule ever gets created for any other
