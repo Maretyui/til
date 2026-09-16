@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/072-content-visibility-auto-intrinsic-size.html">
+        content-visibility: auto needs contain-intrinsic-size or the scrollbar jumps around
+        <small>web dev — off-screen elements collapse to near-zero height until laid out, so a long list without a reserved placeholder size makes the page's total scrollable height keep shifting</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/071-plugin-yml-api-version-mismatch.html">
         A Paper plugin.yml api-version one minor version too high disables the plugin with no error
         <small>Minecraft server administration — a rebuilt plugin loaded silently as if absent, because its declared api-version was newer than the running server's, and Paper skips loading instead of throwing</small>
