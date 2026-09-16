@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/071-plugin-yml-api-version-mismatch.html">
+        A Paper plugin.yml api-version one minor version too high disables the plugin with no error
+        <small>Minecraft server administration — a rebuilt plugin loaded silently as if absent, because its declared api-version was newer than the running server's, and Paper skips loading instead of throwing</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/070-rest-api-delete-ignores-body.html">
         A REST API's DELETE can silently ignore its request body
         <small>web dev — a pruning job kept returning 200 while doing nothing, because its HTTP client sent the retention rules as a body on a DELETE call, and the server only ever read query parameters for that method</small>
