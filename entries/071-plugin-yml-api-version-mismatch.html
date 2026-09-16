@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Paper plugin.yml api-version one minor version too high disables the plugin with no crash</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A rebuilt plugin just wasn't there anymore</h2>
+    <p>
+      After bumping a Paper plugin's build against a newer server jar,
+      the freshly built <code>.jar</code> dropped into
+      <code>plugins/</code> and the server restarted clean — no stack
+      trace, no error line in the console at all. The plugin's commands
+      just didn't exist, as if the file had never been copied over.
+      Diffing the console output against a previous good start showed
+      the plugin's own startup banner missing entirely, which was the
+      first real clue: it hadn't crashed during <code>onEnable()</code>,
+      it had never been loaded in the first place.
+    </p>
+    <h2>Why: api-version is a hard gate before any of your code runs</h2>
+    <p>
+      <code>plugin.yml</code>'s <code>api-version</code> field isn't a
+      hint or a compatibility note — Paper checks it before touching the
+      plugin's actual classes, and if the declared version is newer than
+      what the running server implements, it silently skips loading the
+      plugin instead of throwing anything. The build had been updated to
+      target a newer API package for an unrelated reason, which bumped
+      the generated <code>api-version</code> along with it, while the
+      actual server jar running in production was still one minor
+      version behind. Nothing about the plugin's code was wrong; the
+      version gate rejected it before <code>onLoad()</code> ever ran.
+    </p>
+    <pre><code># plugin.yml
+name: ExamplePlugin
+main: com.example.ExamplePlugin
+version: 1.4.0
+api-version: '1.21'   # must be &lt;= the running server's own API version
+
+# the server log for a silently skipped plugin looks completely
+# unremarkable - no warning, just an absence:
+[Server] Loading plugins...
+[Server] Done (4.821s)! For help, type "help"
+# (no "[ExamplePlugin] Enabling ExamplePlugin v1.4.0" line anywhere above)</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Treat <code>api-version</code> as a floor for the server, not a
+      moving target that follows the build environment automatically —
+      pin it explicitly to the oldest API the plugin actually needs
+      rather than whatever the local dev server jar happens to be, and
+      when a plugin goes quiet with zero errors after a rebuild, check
+      for a missing enable banner in the log before assuming the jar
+      failed to copy or a dependency was missing.
+    </p>
+  </article>
+</main>
+</body>
+</html>
