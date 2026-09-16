@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: content-visibility: auto needs contain-intrinsic-size or the scrollbar keeps jumping</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A long list page rendered faster, then the scrollbar started fighting back</h2>
+    <p>
+      A page rendering a few hundred report cards in a single list got
+      <code>content-visibility: auto</code> added to each card as a
+      quick fix for a slow initial paint — the browser stops laying out
+      and painting anything currently off-screen, which is exactly the
+      win it promises. Initial load did get noticeably faster. But the
+      scrollbar thumb started jumping around while scrolling fast, and
+      "scroll to bottom" landed in the wrong place depending on how fast
+      the scroll happened.
+    </p>
+    <h2>Why: an unsized off-screen element collapses, then snaps back</h2>
+    <p>
+      Without a hinted size, a <code>content-visibility: auto</code>
+      element that's off-screen gets treated as having roughly zero
+      intrinsic size until the browser actually lays it out — which only
+      happens once it's close enough to the viewport to matter. That
+      means the page's total scrollable height keeps changing as
+      elements pop in and out of "skipped" state, which is exactly what
+      a bouncing scrollbar thumb looks like. The fix is
+      <code>contain-intrinsic-size</code>: a placeholder size the browser
+      reserves for the element while its real content is being skipped,
+      so the page's layout height stays stable even before that card has
+      ever actually been rendered.
+    </p>
+    <pre><code>.report-card {
+  content-visibility: auto;
+  /* reserve roughly the real rendered height up front, so
+     off-screen cards don't collapse to ~0px and shift the
+     scrollable area every time one enters or leaves view */
+  contain-intrinsic-size: auto 220px;
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>content-visibility: auto</code> is close to a free win for
+      long pages of repeated, similarly-sized blocks, but it's not a
+      drop-in one-liner — it needs a matching
+      <code>contain-intrinsic-size</code> estimate or it trades a slow
+      first paint for a visibly unstable scrollbar. The size only needs
+      to be roughly right; it's a layout placeholder, not a hard
+      constraint on the eventual rendered content.
+    </p>
+  </article>
+</main>
+</body>
+</html>
