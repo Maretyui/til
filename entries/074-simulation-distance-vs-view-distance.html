@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: lowering view-distance doesn't touch how far a Minecraft server simulates</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Trimming view-distance was supposed to fix lag, but broke farms instead</h2>
+    <p>
+      A survival server under heavy load had <code>view-distance</code>
+      turned down from 10 to 6 in <code>server.properties</code>, hoping
+      to cut CPU/memory use. It did help a little, but the real effect
+      wasn't what was expected: mob farms and redstone contraptions sitting
+      a bit outside the base stopped working, even though nobody had
+      moved or touched them. Players standing right next to their own
+      farm saw it running fine; anything a bit further out just went
+      quiet.
+    </p>
+    <h2>Why: view-distance is about rendering, not simulation</h2>
+    <p>
+      <code>view-distance</code> only controls how many chunks the server
+      sends to a client to draw — it's a purely visual/network setting,
+      the server-side equivalent of a client's own render-distance
+      slider. The setting that actually decides how far around a player
+      the world keeps <em>ticking</em> — mob AI, redstone, crop growth,
+      hoppers, block ticks — is a separate one: <code>simulation-distance</code>.
+      Chunks inside the simulation radius get fully processed every tick
+      regardless of whether they're also being rendered to anyone; chunks
+      outside it are frozen in place. Turning down <code>view-distance</code>
+      alone does nothing to that radius — but on some server distributions
+      simulation-distance defaults to tracking the view-distance value
+      unless it's set explicitly, so a well-meaning render-distance cut
+      can silently shrink the simulation radius along with it.
+    </p>
+    <pre><code># server.properties
+view-distance=10
+simulation-distance=10   # set independently — don't assume it follows view-distance</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      On a Minecraft server, "how far players can see" and "how far the
+      world is actually alive" are two different radii with two different
+      settings. When tuning performance, cut whichever one is actually
+      causing the cost — usually simulation-distance, since ticking
+      entities and redstone is far more expensive than streaming chunk
+      data — and always check both values after changing either one,
+      rather than assuming a single setting covers both jobs.
+    </p>
+  </article>
+</main>
+</body>
+</html>
