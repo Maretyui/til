@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: truncating a string by .length can slice a single emoji in half</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A truncated preview started ending in a broken glyph</h2>
+    <p>
+      A "show a short preview, then an ellipsis" feature truncated user
+      text with plain <code>str.slice(0, 40) + "…"</code>. It worked fine
+      for months, then a preview that happened to cut off right after a
+      family emoji or a flag emoji started rendering a stray tofu box or
+      a lone skin-tone modifier with nothing to attach to — the emoji had
+      been sliced clean in half.
+    </p>
+    <h2>Why: JS string indices count UTF-16 code units, not "characters"</h2>
+    <p>
+      What a person perceives as one character — a flag, a family emoji,
+      a letter with a combining accent — is often built from
+      <em>multiple</em> Unicode code points stitched together with
+      zero-width joiners or regional indicator pairs, and some of those
+      code points are themselves surrogate pairs in UTF-16.
+      <code>String.prototype.slice</code> and <code>.length</code> have
+      no idea any of that grouping exists; they just count 16-bit units
+      and cut wherever the requested number lands, even if that's in the
+      middle of one visual glyph.
+    </p>
+    <p>
+      The fix is <code>Intl.Segmenter</code>, which understands Unicode's
+      actual grapheme-cluster boundaries — the same rules a text editor
+      uses to decide where the cursor is allowed to land:
+    </p>
+    <pre><code>function truncateGraphemes(str, maxGraphemes) {
+  const segmenter = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+  const graphemes = [...segmenter.segment(str)].map((s) => s.segment);
+  if (graphemes.length <= maxGraphemes) return str;
+  return graphemes.slice(0, maxGraphemes).join("") + "…";
+}</code></pre>
+    <p>
+      Segmenting first and then slicing the resulting array means the cut
+      always lands on a real grapheme boundary — a whole flag or a whole
+      family emoji, never half of one.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any string length limit, truncation, or "characters remaining"
+      counter that has to survive real-world Unicode (emoji, combining
+      accents, non-Latin scripts) shouldn't index by
+      <code>.length</code> or slice by raw position. Segment first with
+      <code>Intl.Segmenter</code>, then count or slice the segments —
+      it's a native browser API, no library needed, and it fixes the bug
+      at the root instead of special-casing specific emoji ranges.
+    </p>
+  </article>
+</main>
+</body>
+</html>
