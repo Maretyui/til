@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/073-intl-segmenter-grapheme-clusters.html">
+        Truncating a string by .length can slice a single emoji in half
+        <small>web dev — a "show 40 characters then an ellipsis" preview cut some flag and family emoji clean in two, because JS string indices count UTF-16 code units, not the grapheme clusters a person actually sees as one character</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/072-content-visibility-auto-intrinsic-size.html">
         content-visibility: auto needs contain-intrinsic-size or the scrollbar jumps around
         <small>web dev — off-screen elements collapse to near-zero height until laid out, so a long list without a reserved placeholder size makes the page's total scrollable height keep shifting</small>
