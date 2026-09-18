@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Minecraft proxy's ping-passthrough setting decides what the server list actually shows</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A proxy's server-icon and player-count in the list came from the wrong place</h2>
+    <p>
+      A Velocity-style Minecraft proxy sat in front of several backend
+      servers, each mapped to its own hostname via forced-hosts, so players
+      could type one address and land on the right server automatically.
+      The server list entry for every one of those hostnames showed the
+      proxy's own icon and its own decorative max-player number, never the
+      backend's real ones — even though each backend had a perfectly good
+      icon of its own sitting right there.
+    </p>
+
+    <h2>Why: ping-passthrough only forwards the MOTD by default</h2>
+    <p>
+      Modern proxies ping the backend on the player's behalf and relay
+      some of that response back to the client, but exactly how much gets
+      relayed is controlled by a single setting, usually something like
+      <code>ping-passthrough</code>. The common default only passes through
+      the MOTD text — description only, not the favicon and not the real
+      player counts — so the proxy quietly falls back to its own values
+      for everything else. Nothing errors, nothing logs a warning; the
+      server list just silently shows proxy-level data dressed up as
+      backend-specific data.
+    </p>
+    <pre><code># proxy config, roughly
+[servers]
+ping-passthrough = "description"   # MOTD only, icon/counts stay the proxy's own
+# ping-passthrough = "all"         # backend's icon + real player count too
+</code></pre>
+
+    <h2>The catch with switching it to "all"</h2>
+    <p>
+      Passing everything through means the backend's own <code>max-players</code>
+      value is now what players see, not any decorative placeholder number
+      configured on the proxy. If a backend was relying on the proxy's
+      fake high player-count for cosmetic reasons, that illusion breaks
+      the moment passthrough is widened — the fix for one problem
+      (missing icon) exposes a value (real player cap) that was
+      previously hidden on purpose. Worth deciding on both before
+      flipping the setting, not just the one that prompted the change.
+    </p>
+  </article>
+</main>
+</body>
+</html>
