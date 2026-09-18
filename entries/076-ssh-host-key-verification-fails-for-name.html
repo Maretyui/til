@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: SSH can reject a hostname alias even though the IP behind it is already trusted</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>"Host key verification failed" for a name, but the IP connects fine</h2>
+    <p>
+      A server was reachable and already fully trusted at its IP address —
+      <code>ssh 192.0.2.10</code> connected without any prompt at all, key
+      already accepted long ago. Reaching the exact same box by a short
+      internal hostname alias instead, e.g. <code>ssh app-host</code>,
+      failed immediately with <code>Host key verification failed</code>,
+      as if it were a completely different, untrusted machine.
+    </p>
+
+    <h2>Why: known_hosts keys by name, not by identity</h2>
+    <p>
+      OpenSSH's <code>known_hosts</code> file stores one entry per
+      hostname-or-IP string a client actually typed, each paired with the
+      fingerprint it saw the first time. It does not track "this is the
+      same physical host reachable multiple ways" — an IP and a name that
+      both point at one machine are, as far as <code>known_hosts</code> is
+      concerned, two entirely separate identities until each one has been
+      accepted on its own. This is not a sign of a key mismatch or a
+      man-in-the-middle — it is simply a name that has never been seen
+      before, checked with the wrong mental model (comparing keys) instead
+      of the right one (comparing the two lines in the file).
+    </p>
+    <pre><code>ssh-keygen -F app-host      # nothing — never connected under this name
+ssh-keygen -F 192.0.2.10    # shows the already-trusted fingerprint
+</code></pre>
+
+    <h2>Fix: add the alias, don't chase a key mismatch</h2>
+    <p>
+      Confirm both fingerprints are identical (they will be — same host),
+      then just connect once by the new name and accept it, or add the
+      alias explicitly:
+    </p>
+    <pre><code>ssh -o StrictHostKeyChecking=accept-new app-host
+# or maintain both entries deliberately in ~/.ssh/config
+</code></pre>
+    <p>
+      Whichever hostnames or IPs are actually used to reach a box need
+      their own accepted entry — trusting one form doesn't propagate to
+      the others.
+    </p>
+  </article>
+</main>
+</body>
+</html>
