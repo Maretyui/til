@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: an unhandled promise rejection now kills the whole Node process</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A long-running bot process kept dying with no stack trace in the logs</h2>
+    <p>
+      A small background worker (a queue consumer, the kind of process
+      meant to just run forever under a process manager) would exit
+      every so often with nothing useful in its log file — no
+      exception, no "Error:" line, just the process manager reporting a
+      restart. The actual cause turned out to be a single
+      <code>fetch()</code> call inside a background interval that
+      wasn't wrapped in <code>try/catch</code> and whose returned
+      promise was never awaited or <code>.catch()</code>'d. Every so
+      often the network call failed (a timeout, a flaky DNS lookup) and
+      that rejected promise had nowhere to go.
+    </p>
+    <h2>Why: Node's default behavior for this changed a while back</h2>
+    <p>
+      Older Node versions just printed a deprecation warning for an
+      unhandled promise rejection and kept the process running — easy
+      to miss, but at least harmless in the moment. Since Node 15, the
+      default flips the other way: an unhandled rejection terminates
+      the process with a non-zero exit code, the same way an uncaught
+      synchronous exception would. That's arguably the more correct
+      behavior (a swallowed rejection is a real bug, not a warning), but
+      it means any fire-and-forget async call anywhere in a codebase is
+      now a live crash risk if a process manager auto-restarts on exit
+      and nobody notices the pattern.
+    </p>
+    <pre><code>// this looks fine and runs fine, right up until fetch() rejects
+setInterval(() => {
+  fetch('https://example.com/api/ping'); // not awaited, no .catch()
+}, 30000);
+// on a rejection: process exits, restarts, no trace of why
+
+// either handle it locally:
+setInterval(() => {
+  fetch('https://example.com/api/ping').catch((err) => {
+    console.error('ping failed', err);
+  });
+}, 30000);
+
+// or at least log it centrally so it's visible before the process
+// manager just quietly restarts things:
+process.on('unhandledRejection', (reason) => {
+  console.error('unhandled rejection', reason);
+});</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Every fire-and-forget async call in a long-running process needs
+      either its own <code>.catch()</code> or a deliberate top-level
+      <code>process.on('unhandledRejection', ...)</code> handler — not
+      as a substitute for fixing the real bug, but so a silent restart
+      loop turns into a visible, debuggable log line instead.
+    </p>
+  </article>
+</main>
+</body>
+</html>
