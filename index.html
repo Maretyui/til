@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/077-rsync-delete-exclude-mirrors-locally-too.html">
+        rsync --delete only skips deleting what's excluded on the source too
+        <small>infra — an --exclude flag is coupled to the source tree's current shape; renaming the excluded local directory without updating the flag made the next deploy delete the server-only copy</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/076-ssh-host-key-verification-fails-for-name.html">
         SSH can reject a hostname alias even though the IP behind it is already trusted
         <small>infra — known_hosts keys entries by name, not by machine identity; an IP and a hostname alias for the same box need separate accepted entries</small>

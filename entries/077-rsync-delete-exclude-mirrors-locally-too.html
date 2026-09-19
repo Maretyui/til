@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: rsync --delete only skips deleting what's excluded on the source too</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A deploy script's --exclude looked safe, until a rename happened</h2>
+    <p>
+      A deploy recipe synced a build folder to a server with
+      <code>rsync -avz --delete --exclude='uploads/' . user@host:/srv/app/</code>,
+      the standard pattern for keeping a server-only uploads directory
+      untouched while still mirroring everything else exactly. It had
+      worked for months. Then the uploads directory got renamed locally
+      (a one-off cleanup, unrelated to the deploy itself) without
+      updating the exclude pattern to match — and the next deploy
+      quietly deleted every file the server had under the old
+      directory name.
+    </p>
+    <h2>Why: --exclude only protects a path that exists identically on both sides</h2>
+    <p>
+      <code>--delete</code> works by diffing what the destination has
+      against what the source has (after excludes are applied) and
+      removing anything on the destination that isn't in that filtered
+      source list. An <code>--exclude</code> pattern doesn't mean "never
+      touch this path on the destination" — it means "don't consider
+      this path when comparing." If the source no longer has a
+      directory under that name at all (renamed, deleted, or just
+      typo'd in the exclude flag), rsync has nothing to exclude by that
+      name anymore, and the destination's matching directory looks like
+      plain drift to be deleted, not protected data.
+    </p>
+    <pre><code># source renamed uploads/ -> media/ locally, but the deploy
+# script still says:
+rsync -avz --delete --exclude='uploads/' . user@example.com:/srv/app/
+# rsync now sees no local uploads/ to exclude, and no local
+# uploads/ to keep either -> the remote uploads/ just looks deleted
+
+# --dry-run always shows exactly what would be removed first:
+rsync -avzn --delete --exclude='uploads/' . user@example.com:/srv/app/
+# a real uploads/*** line in that output means the exclude
+# pattern no longer matches anything real</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      An exclude pattern is coupled to the source tree's current shape,
+      not a standing promise about the destination. Any rename, path
+      restructuring, or deploy-script refactor near an excluded
+      server-only directory needs the exclude flag checked and updated
+      in the same change — and a <code>--dry-run</code> pass before any
+      <code>--delete</code> sync is cheap insurance against exactly this.
+    </p>
+  </article>
+</main>
+</body>
+</html>
