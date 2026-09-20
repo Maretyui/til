@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: :has() lets a parent react to what's inside it, no JavaScript needed</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A form field's border needed to turn red, but only after a sibling failed validation</h2>
+    <p>
+      A small contact form grouped a label and input inside a
+      <code>&lt;div class="field"&gt;</code> wrapper, and the ask was
+      simple: give the wrapper a red border once its input became
+      invalid, so the whole field (label included) reads as errored,
+      not just the input's own default browser outline. The obvious-
+      looking <code>.field:invalid</code> doesn't work — <code>:invalid</code>
+      matches the input itself, and the wrapper <code>div</code> is
+      never invalid, only its child is.
+    </p>
+
+    <h2>Why: CSS had no way to select a parent based on its children</h2>
+    <p>
+      Every CSS selector before <code>:has()</code> selects downward —
+      an ancestor, a following sibling, a direct child — never a parent
+      based on what's nested inside it. That direction always needed
+      JavaScript: listen for an <code>invalid</code> event on the input,
+      then toggle a class on the wrapper by hand. <code>:has()</code>
+      (the "relational pseudo-class," landed in every major engine by
+      2023) fixes exactly this gap — it matches an element if any
+      selector passed to it matches something inside that element.
+    </p>
+    <pre><code>.field:has(:invalid) {
+  border: 1px solid crimson;
+}
+
+/* also works for "does this card contain an image at all" */
+.card:has(img) {
+  grid-template-columns: 120px 1fr;
+}
+
+/* or styling a label differently when its own input is focused,
+   without needing a wrapping :focus-within on the label itself */
+label:has(input:focus) {
+  color: var(--accent);
+}</code></pre>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Any "if this container has an X inside it, style the container
+      differently" rule that used to need a JS event listener and a
+      manually toggled class can now often be written as a single
+      <code>:has()</code> rule instead — worth checking before reaching
+      for JavaScript the next time the styling logic is really about a
+      parent reacting to its own contents.
+    </p>
+  </article>
+</main>
+</body>
+</html>
