@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Discord embed has a character limit per field, not just one overall limit</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A log embed rejected a message that looked well under any reasonable limit</h2>
+    <p>
+      A bot's audit-log embed dumped a long moderation reason into a
+      single embed field's value, well under a few thousand characters
+      — nowhere near what felt like "a lot of text" for a chat app. The
+      request still got rejected outright with a 400 and a validation
+      error pointing at that one field, not the embed as a whole.
+    </p>
+
+    <h2>Why: Discord embeds cap each piece separately, not just the total</h2>
+    <p>
+      It's easy to assume there's one overall length budget for an
+      embed, but Discord actually enforces a limit on almost every
+      individual text value inside it, on top of a combined total:
+    </p>
+    <pre><code>title            256 characters
+description      4096 characters
+field.name        256 characters
+field.value      1024 characters   ← the one that bit here
+footer.text      2048 characters
+author.name       256 characters
+fields (count)   max 25 per embed
+all text combined, across every field above:   6000 characters</code></pre>
+    <p>
+      A field <em>value</em> tops out at 1024 characters even though
+      the embed's own combined budget is six thousand — so a value that
+      individually clears the smaller cap can still trip the request
+      up long before the embed as a whole gets anywhere near full.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Truncate (or wrap into multiple fields/a paragraph in the
+      description instead) against the specific field's own limit, not
+      against a single mental "embeds can hold ~6000 characters"
+      number — the smallest applicable cap is the one that actually
+      decides whether the request succeeds.
+    </p>
+    <pre><code>const value = reason.length > 1024
+  ? reason.slice(0, 1021) + '...'
+  : reason;</code></pre>
+  </article>
+</main>
+</body>
+</html>
