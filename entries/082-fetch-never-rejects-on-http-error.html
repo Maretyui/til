@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: fetch() only rejects on network failure, never on an HTTP error status</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A contact form silently "succeeded" while the API had returned a 500</h2>
+    <p>
+      A small contact-form endpoint failed on the server (a bad env var
+      caused the mail step to throw), returning a 500 with a JSON error
+      body. The frontend's <code>try/catch</code> around the
+      <code>fetch()</code> call never caught anything, though — the
+      success toast fired every time, even for requests that had visibly
+      failed server-side.
+    </p>
+
+    <h2>Why: a non-2xx status code is not a fetch failure</h2>
+    <p>
+      <code>fetch()</code> only rejects its promise for genuine network-
+      level failures — DNS not resolving, the connection being refused,
+      a CORS block, the request being aborted. Once a response actually
+      comes back from the server, <code>fetch()</code> resolves
+      successfully no matter what status code is attached to it. A 404 or
+      a 500 is, as far as the promise is concerned, just as much a
+      "success" as a 200.
+    </p>
+    <pre><code>const res = await fetch('/api/contact', { method: 'POST', body });
+// res.ok is false and res.status is 500, but nothing threw —
+// this line runs regardless of whether the request "succeeded":
+showSuccessToast();
+
+// The check that was actually missing:
+if (!res.ok) {
+  throw new Error(`Request failed: ${res.status}`);
+}</code></pre>
+    <p>
+      This is different from most other HTTP client libraries by design —
+      older tools like jQuery's <code>$.ajax</code> or Axios treat a
+      non-2xx status as a rejected promise out of the box. Plain
+      <code>fetch()</code> deliberately does not, on the reasoning that a
+      4xx/5xx response is still a "successful" HTTP exchange at the
+      transport level.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Every <code>fetch()</code> call that cares about failure needs an
+      explicit <code>if (!res.ok)</code> check (or reading
+      <code>res.status</code>) before treating the response as good —
+      the <code>try/catch</code> around it only ever catches the network
+      layer, never the application layer.
+    </p>
+  </article>
+</main>
+</body>
+</html>
