@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord autocomplete interactions can't be deferred like other interactions</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A slow autocomplete lookup made the dropdown just... not show up</h2>
+    <p>
+      A slash command option had autocomplete wired up to search a small
+      local list — nothing that should take more than a few milliseconds.
+      Under any real load, though, the suggestion dropdown in Discord
+      would occasionally just stay empty, with no error anywhere in the
+      bot's logs. The handler ran fine and returned a response; Discord's
+      client simply never showed it.
+    </p>
+
+    <h2>Why: autocomplete is its own interaction type, and it has no defer</h2>
+    <p>
+      Every other interaction (a slash command, a button click, a select
+      menu) can call <code>deferReply()</code> to buy extra time and edit
+      the response in later. Autocomplete requests
+      (<code>InteractionType.ApplicationCommandAutocomplete</code>) don't
+      support that at all — there is no deferred-autocomplete response
+      type in the API. The only valid reply is a single
+      <code>APPLICATION_COMMAND_AUTOCOMPLETE_RESULT</code> callback, and
+      it has to land inside the same roughly 3-second window every
+      interaction gets, with no extension available.
+    </p>
+    <pre><code>// This works for a slash command:
+await interaction.deferReply();
+const result = await slowLookup();
+await interaction.editReply(result);
+
+// This does NOT exist for autocomplete — there's nothing to defer to.
+// If slowLookup() takes too long, the response is just dropped client-side.
+async function handleAutocomplete(interaction) {
+  const choices = await slowLookup(interaction.options.getFocused());
+  await interaction.respond(choices.slice(0, 25));
+}</code></pre>
+    <p>
+      Discord doesn't send back an error when this happens either — the
+      client just silently shows no suggestions, which is exactly why it
+      looked like nothing was wrong on the bot's side.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Any data source backing an autocomplete handler needs to already be
+      fast enough to answer inside the interaction's own timeout —
+      in-memory lookups, a cached list, or a pre-warmed index, never a
+      cold network/database call made for the first time on that
+      keystroke. If a real query is unavoidable, cache its result and
+      serve stale data on the next keystroke rather than trying to fetch
+      fresh data every time, since a slow round trip has no fallback here.
+    </p>
+  </article>
+</main>
+</body>
+</html>

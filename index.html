@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/081-discord-autocomplete-cannot-defer.html">
+        Discord autocomplete interactions can't be deferred like other interactions
+        <small>Discord bots — autocomplete has no deferred-response type, so a slow lookup just makes the suggestion dropdown silently stay empty instead of erroring</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/080-discord-embed-nested-character-limits.html">
         A Discord embed has a character limit per field, not just one overall limit
         <small>Discord bots — field.value caps out at 1024 characters well before the embed's combined 6000-character budget, so a value that clears the "total" mental limit can still fail on its own</small>
