@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord's rate-limit Retry-After value is in seconds, not milliseconds</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A homemade rate-limit retry loop kept a bot hammering Discord for a full minute</h2>
+    <p>
+      A small helper wrapping raw REST calls (bulk role updates on a
+      ticket bot) had its own 429 handler: read the retry hint off the
+      response, wait that long, try again. It worked — but every retry
+      loop was taking roughly a thousand times longer than the bucket
+      it was supposedly respecting, and logs showed the bot still
+      getting 429'd on the very next attempt after "waiting".
+    </p>
+    <h2>Why: the header and the body disagree on units</h2>
+    <p>
+      Discord's REST API returns rate-limit info in two places at once,
+      and they don't match. The standard HTTP <code>Retry-After</code>
+      header is in whole seconds, per the HTTP spec every other API
+      also follows. But Discord's own JSON error body on a 429 also
+      includes a <code>retry_after</code> field — and that one is a
+      floating-point number of seconds too, which is easy to mistake
+      for milliseconds if you're used to reading timestamps/durations
+      as ms by default elsewhere in the same codebase.
+    </p>
+    <pre><code>// A 429 response body looks like:
+// { "message": "You are being rate limited.",
+//   "retry_after": 0.847, "global": false }
+
+// Wrong — treats 0.847 as milliseconds, retries almost immediately:
+await sleep(body.retry_after);
+
+// Right — it's already seconds:
+await sleep(body.retry_after * 1000);</code></pre>
+    <p>
+      The actual bug here was the opposite mistake in the same
+      codebase: a helper elsewhere read the <code>Retry-After</code>
+      <em>header</em> (correctly, in seconds) but then multiplied it by
+      1000 a second time further up the call stack, where a generic
+      "sleep for N seconds" utility was already doing that conversion —
+      so a 2-second cooldown turned into a 2000-second one, and the bot
+      just sat there for over half an hour looking hung.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Both the header and the body value are seconds — never assume
+      milliseconds just because a duration is stored as a plain number.
+      Convert exactly once, as close as possible to the single place
+      that actually calls <code>setTimeout</code>/<code>sleep</code>,
+      and log the resolved wait time in a human-readable form
+      ("waiting 2.3s") during development so a units mistake is obvious
+      at a glance instead of only showing up as mysteriously long or
+      mysteriously ineffective backoff.
+    </p>
+  </article>
+</main>
+</body>
+</html>
