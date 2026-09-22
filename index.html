@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/084-systemd-timer-persistent-missed-runs.html">
+        A systemd calendar timer silently skips runs missed while the machine was off
+        <small>infra — OnCalendar= only fires while something is watching the clock; Persistent=true makes it catch up once on the next boot instead of waiting for the next regular slot</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/083-discord-retry-after-seconds.html">
         Discord's rate-limit Retry-After value is seconds, not milliseconds
         <small>Discord bots — both the HTTP header and the 429 body's retry_after field are already seconds; multiplying either by 1000 a second time turns a short cooldown into a very long one</small>

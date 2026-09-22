@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a systemd timer silently skips runs it missed while the machine was off</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A daily cleanup job just never ran after a box was rebooted for maintenance</h2>
+    <p>
+      A systemd timer set to run a log-rotation script once a day
+      (<code>OnCalendar=daily</code>) went quiet for almost a week after
+      a machine was taken down for an evening and brought back up the
+      next morning. No error anywhere — <code>systemctl list-timers</code>
+      showed a perfectly normal "next run" time, just nothing had
+      actually executed in between.
+    </p>
+    <h2>Why: a calendar timer only fires while something is watching the clock</h2>
+    <p>
+      <code>OnCalendar=</code> timers are evaluated against wall-clock
+      time by a running systemd instance — if the box is powered off
+      (or just the timer unit was disabled) at the exact moment a
+      scheduled run was due, that run simply never happens. Unlike an
+      <code>OnUnitActiveSec=</code> timer counting elapsed time since
+      the last run, systemd does not remember "this was supposed to
+      fire yesterday at 3am" and catch up once it's back — the missed
+      occurrence is gone unless you explicitly ask for that behavior.
+    </p>
+    <pre><code>[Timer]
+OnCalendar=daily
+# Without this, a run scheduled during downtime is skipped
+# entirely instead of firing once as soon as the system is
+# back up:
+Persistent=true
+
+[Install]
+WantedBy=timers.target</code></pre>
+    <p>
+      <code>Persistent=true</code> makes systemd record the last trigger
+      time (via the timer's stamp file under
+      <code>/var/lib/systemd/timers/</code>) and, on startup, check
+      whether a scheduled run was missed since then — if so, it fires
+      once immediately instead of waiting for the next regularly
+      scheduled slot. It's the timer-unit equivalent of cron's
+      <code>anacron</code>, and it's off by default.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any <code>OnCalendar=</code> timer covering something that has to
+      happen exactly once per period — rotation, backups, cleanup —
+      needs <code>Persistent=true</code> on any machine that might ever
+      be rebooted, suspended, or briefly down across a scheduled run.
+      <code>systemctl list-timers</code> only tells you the next
+      scheduled time; it says nothing about whether a past one was
+      actually honored.
+    </p>
+  </article>
+</main>
+</body>
+</html>
