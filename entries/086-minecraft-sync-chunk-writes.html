@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: sync-chunk-writes trades server TPS for crash-safe region files</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A survival server that crashed mid-save lost a chunk of terrain, not just progress</h2>
+    <p>
+      After an unclean shutdown (host got killed by an OOM condition
+      elsewhere on the box, not the Minecraft process itself) a survival
+      world came back up with a small patch of terrain reverted to void
+      — not just "missing the last few minutes," but an actually
+      corrupted region file that had to be regenerated. The server had
+      been running with default settings, which turned out to matter.
+    </p>
+    <h2>Why: region-file writes are async by default, for throughput</h2>
+    <p>
+      Minecraft's world save writes go through the OS page cache before
+      hitting disk, and by default the server doesn't force a sync after
+      every chunk write — it batches and lets the OS flush on its own
+      schedule, which is faster and easier on disk I/O. That's fine as
+      long as the process and the underlying disk both stay up. If the
+      machine dies mid-write, whatever hadn't been flushed yet is gone,
+      and a region file caught in the middle of a write can end up
+      truncated or with a bad header instead of just "slightly stale."
+    </p>
+    <pre><code># server.properties
+# default is false: writes are buffered, better TPS, but an
+# unclean shutdown can lose or corrupt whatever wasn't flushed yet
+sync-chunk-writes=true</code></pre>
+    <p>
+      Setting it to <code>true</code> forces an explicit sync on every
+      chunk write, so the world file on disk is never more than one
+      chunk-write behind reality — at the cost of extra disk I/O on
+      every save, which shows up as a small but real TPS hit on
+      spinning disks or already-loaded storage, less noticeable on NVMe.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      This is a durability/throughput tradeoff, not a bug fix — leave it
+      off for a survival world on reliable hardware where a bit of lost
+      progress on a rare crash is acceptable, but turn it on for
+      anything running on flaky hosting, inside a VM that might get
+      killed abruptly, or where the world data itself (not just player
+      progress) has to survive an unclean shutdown intact.
+    </p>
+  </article>
+</main>
+</body>
+</html>
