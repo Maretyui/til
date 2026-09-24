@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: clamp() replaces a whole stack of font-size media queries</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A hero heading needed five breakpoints to stop looking wrong</h2>
+    <p>
+      A large hero heading had a fixed <code>font-size</code> that looked
+      great at desktop width and comically oversized on a narrow phone.
+      The instinctive fix was to add a media query per breakpoint,
+      stepping the size down at each one — which worked, but meant five
+      separate rules to maintain, and the heading still visibly "jumped"
+      at each breakpoint edge instead of scaling smoothly.
+    </p>
+    <h2>Why: font-size can just be a formula instead of a table</h2>
+    <p>
+      <code>clamp(min, preferred, max)</code> takes three values and
+      picks the middle one unless it would go outside the min/max
+      bounds — and the "preferred" value can itself be a
+      <code>vw</code>-based expression, so it scales continuously with
+      viewport width instead of snapping at fixed steps:
+    </p>
+    <pre><code>h1 {
+  /* never smaller than 1.75rem, never larger than 3.5rem,
+     otherwise scales with viewport width */
+  font-size: clamp(1.75rem, 1.1rem + 3vw, 3.5rem);
+}</code></pre>
+    <p>
+      The middle term is the part worth understanding:
+      <code>1.1rem + 3vw</code> means "a fixed base size plus 3% of the
+      viewport width" — tune the fixed part to set roughly where the
+      curve sits, and the <code>vw</code> coefficient to control how
+      aggressively it grows. No media query needed at all; the min/max
+      bounds are exactly what the breakpoint-based rules were doing
+      manually, just continuous instead of stepped.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Anywhere a value used to need "small screen: X, large screen: Y,
+      with a couple of steps in between" — font-size, section padding,
+      gap between grid items — <code>clamp()</code> with a
+      <code>vw</code>-based preferred value is usually a direct, smaller
+      replacement for the whole breakpoint ladder, as long as the
+      relationship between viewport width and the value is meant to be
+      roughly linear. It doesn't help when the layout needs to actually
+      restructure (stack instead of scale), which is still a job for a
+      real breakpoint.
+    </p>
+  </article>
+</main>
+</body>
+</html>
