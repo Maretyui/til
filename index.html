@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/086-minecraft-sync-chunk-writes.html">
+        sync-chunk-writes trades server TPS for crash-safe region files
+        <small>Minecraft server administration — buffered writes are faster but an unclean shutdown can corrupt a region file; forcing a sync on every chunk write costs I/O but keeps disk state one write behind reality at worst</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/085-css-clamp-fluid-typography.html">
         clamp() replaces a whole stack of font-size media queries
         <small>web dev — clamp(min, base + Nvw, max) scales a value continuously with viewport width between two bounds, replacing a breakpoint ladder with one line, as long as the relationship is meant to be roughly linear</small>
