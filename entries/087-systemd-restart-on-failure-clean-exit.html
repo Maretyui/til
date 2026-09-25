@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: systemd's Restart=on-failure doesn't restart a unit that exits 0</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A worker process kept dying and systemd just... let it stay dead</h2>
+    <p>
+      A small background worker unit had <code>Restart=on-failure</code> set,
+      which sounds like it should cover "the process died unexpectedly." A
+      bug in the worker's shutdown path made it call <code>process.exit(0)</code>
+      on an unhandled condition instead of throwing — and systemd left it
+      stopped instead of restarting it, with nothing but a quiet gap in the
+      logs to show for it.
+    </p>
+
+    <h2>Why: "on-failure" means a specific list of exit conditions, not "the process is gone"</h2>
+    <p>
+      <code>Restart=on-failure</code> only restarts the unit if it exits with
+      a non-zero code, is terminated by a signal, hits a timeout, or fails a
+      watchdog check. An exit code of <code>0</code> is, by definition, a
+      "clean" exit — even if nothing about the situation that caused it was
+      actually clean. systemd has no way to know the difference between a
+      deliberate shutdown and a bug that happens to call <code>exit(0)</code>.
+    </p>
+    <pre><code>[Service]
+ExecStart=/usr/bin/node worker.js
+# Restarts on crashes/signals/timeouts, but NOT on a plain exit code 0:
+Restart=on-failure
+
+# What actually covers "the process is gone, for any reason":
+Restart=always</code></pre>
+
+    <h2>The actual lesson</h2>
+    <p>
+      For anything that's supposed to keep running indefinitely,
+      <code>Restart=always</code> is almost always the safer default —
+      <code>on-failure</code> only makes sense for units that have a
+      legitimate, intentional "done, exit 0" state. Also worth checking:
+      <code>SuccessExitStatus=</code> can widen what counts as "successful"
+      if a unit's clean-shutdown path uses a nonzero code for some reason,
+      but that doesn't help the reverse case above.
+    </p>
+  </article>
+</main>
+</body>
+</html>
