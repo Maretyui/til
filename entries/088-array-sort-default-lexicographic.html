@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Array.prototype.sort() sorts numbers as strings by default</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "sort by price, low to high" list put 100 before 20</h2>
+    <p>
+      A product list had a sort-by-price feature: <code>prices.sort()</code>
+      on an array of plain numbers. It looked right for small test data
+      (single-digit prices), then shipped and immediately looked broken —
+      <code>[20, 100, 3]</code> came back as <code>[100, 20, 3]</code>
+      instead of <code>[3, 20, 100]</code>.
+    </p>
+
+    <h2>Why: the default comparator converts everything to strings first</h2>
+    <p>
+      <code>Array.prototype.sort()</code> with no comparator function
+      doesn't sort numerically at all — it converts every element to a
+      string and sorts those in UTF-16 code-unit order. Comparing
+      <code>"100"</code> and <code>"20"</code> as strings looks at the
+      first character first: <code>"1"</code> sorts before <code>"2"</code>,
+      so <code>100</code> ends up before <code>20</code> regardless of
+      which number is actually larger.
+    </p>
+    <pre><code>[20, 100, 3].sort();
+// => [100, 20, 3]  — sorted as the strings "100", "20", "3"
+
+[20, 100, 3].sort((a, b) => a - b);
+// => [3, 20, 100]  — sorted numerically, as intended</code></pre>
+
+    <h2>The actual lesson</h2>
+    <p>
+      <code>sort()</code> always needs an explicit comparator for numbers —
+      <code>(a, b) => a - b</code> for ascending, <code>(a, b) => b - a</code>
+      for descending. This isn't a version-specific quirk or something that
+      changed; it's been the documented default behavior since the array
+      sort spec was first written, which is exactly why it's easy to miss
+      until a dataset happens to include a number with more digits than the
+      rest.
+    </p>
+  </article>
+</main>
+</body>
+</html>

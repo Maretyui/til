@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/088-array-sort-default-lexicographic.html">
+        Array.prototype.sort() sorts numbers as strings by default
+        <small>web dev — sort() with no comparator converts every element to a string first, so [20, 100, 3].sort() gives [100, 20, 3]; numeric sorting always needs an explicit (a, b) => a - b comparator</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/087-systemd-restart-on-failure-clean-exit.html">
         Restart=on-failure doesn't restart a unit that exits 0
         <small>infra — "on-failure" only covers nonzero exit codes, signals, timeouts and failed watchdogs; a bug that calls exit(0) on an unexpected path leaves the unit stopped with no restart, no matter how unintentional the exit was</small>
