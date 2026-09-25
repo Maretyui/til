@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/087-systemd-restart-on-failure-clean-exit.html">
+        Restart=on-failure doesn't restart a unit that exits 0
+        <small>infra — "on-failure" only covers nonzero exit codes, signals, timeouts and failed watchdogs; a bug that calls exit(0) on an unexpected path leaves the unit stopped with no restart, no matter how unintentional the exit was</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/086-minecraft-sync-chunk-writes.html">
         sync-chunk-writes trades server TPS for crash-safe region files
         <small>Minecraft server administration — buffered writes are faster but an unclean shutdown can corrupt a region file; forcing a sync on every chunk write costs I/O but keeps disk state one write behind reality at worst</small>
