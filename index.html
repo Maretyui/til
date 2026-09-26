@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/090-logrotate-copytruncate-loses-buffered-writes.html">
+        logrotate's copytruncate can lose whatever was still buffered
+        <small>infra — copytruncate copies the file then truncates it in place instead of renaming + signaling the writer to reopen; anything still sitting in the process's unflushed write buffer at that instant is gone from both the copy and the truncated original</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/089-structuredclone-not-json-round-trip.html">
         structuredClone() isn't a drop-in replacement for JSON round-trips
         <small>web dev — JSON.parse(JSON.stringify()) silently drops functions/undefined and stringifies Dates, while structuredClone() clones Dates/Maps/Sets correctly but throws DataCloneError on anything non-cloneable; they fail in opposite directions, not interchangeably</small>
