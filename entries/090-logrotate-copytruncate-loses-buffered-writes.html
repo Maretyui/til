@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: logrotate's copytruncate can lose whatever a process had buffered</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A log file's last few lines before a rotation kept disappearing</h2>
+    <p>
+      A long-running service logged to a plain file, rotated nightly by
+      <code>logrotate</code> with the <code>copytruncate</code> option. Every
+      so often, the last handful of lines written right around rotation time
+      were just gone from both the old (copied) file and the new one — not
+      corrupted, not misordered, just missing.
+    </p>
+
+    <h2>Why: copytruncate doesn't coordinate with the writer at all</h2>
+    <p>
+      The normal logrotate approach is to rename the file and send the
+      process a signal (or reload it) so it reopens a fresh file handle at
+      the new path. <code>copytruncate</code> exists for processes that
+      can't be told to reopen their log file — instead, logrotate copies the
+      current contents to a new file, then truncates the original in place
+      so the process's already-open file descriptor keeps writing into it.
+    </p>
+    <p>
+      The problem is the gap between the copy and the truncate. If the
+      process has data sitting in a <code>stdio</code> write buffer that
+      hasn't been flushed to the file yet at the moment of the copy, that
+      data is not in the copy - and then the truncate discards it from the
+      original too, since it never actually reached disk in time. It isn't
+      a race in the sense of corrupting bytes; the data simply never existed
+      in either file at the instant logrotate looked.
+    </p>
+    <pre>logrotate config using copytruncate:
+
+/var/log/myapp/*.log {
+    daily
+    copytruncate   # <- no signal sent, no reopen; just copy + truncate
+    rotate 7
+}</pre>
+
+    <h2>The actual lesson</h2>
+    <p>
+      <code>copytruncate</code> is a compatibility fallback, not a free
+      lunch - it trades a small, unavoidable window of possible data loss
+      for not having to modify or signal the writing process. If the
+      process can be made to reopen its log file on <code>SIGHUP</code> (or
+      via a reload command), the normal create/rename-based rotation is
+      strictly safer and should be preferred; <code>copytruncate</code> is
+      only the right call when that's genuinely not an option.
+    </p>
+  </article>
+</main>
+</body>
+</html>
