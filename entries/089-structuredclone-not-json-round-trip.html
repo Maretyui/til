@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: structuredClone() isn't a drop-in replacement for JSON.parse(JSON.stringify())</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Swapping in structuredClone() as a "safer JSON round-trip" broke a config object</h2>
+    <p>
+      A deep-clone helper used the classic
+      <code>JSON.parse(JSON.stringify(obj))</code> trick, which silently
+      drops anything JSON can't represent. Swapping it for
+      <code>structuredClone()</code> looked like a pure improvement — same
+      job, fewer footguns — until it started throwing on an object that the
+      JSON version had cloned without complaint.
+    </p>
+
+    <h2>Why: they fail in opposite directions</h2>
+    <p>
+      <code>JSON.stringify()</code> quietly drops values it can't encode —
+      functions and <code>undefined</code> properties vanish, <code>Date</code>
+      becomes a plain string, <code>Map</code>/<code>Set</code> become
+      <code>{}</code>. It never throws for these, it just loses data.
+      <code>structuredClone()</code> goes the other way: it uses the
+      structured clone algorithm, which knows about <code>Date</code>,
+      <code>Map</code>, <code>Set</code>, <code>RegExp</code>, typed arrays
+      and cyclic references and clones all of them correctly — but if the
+      object contains a function, a DOM node, or an <code>Error</code>
+      subclass with extra properties, it throws a
+      <code>DataCloneError</code> instead of silently dropping it.
+    </p>
+    <pre><code>const obj = { when: new Date(), onDone: () => {} };
+
+JSON.parse(JSON.stringify(obj));
+// => { when: "2026-09-26T10:00:00.000Z" } — Date stringified, function gone, no error
+
+structuredClone(obj);
+// => Uncaught DOMException: could not be cloned. (onDone is a function)</code></pre>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Neither one is strictly "safer" — they just fail differently.
+      <code>structuredClone()</code> is the right choice when the data is
+      genuinely structured-cloneable (dates, maps, sets, nested plain
+      objects/arrays) and you'd rather get a loud error than silent data
+      loss. If the object might carry incidental functions or other
+      non-cloneable values that are fine to lose, the JSON round-trip's
+      silent-drop behavior is actually the more forgiving one — swapping
+      between them isn't a like-for-like substitution, it changes which
+      failure mode you get.
+    </p>
+  </article>
+</main>
+</body>
+</html>
