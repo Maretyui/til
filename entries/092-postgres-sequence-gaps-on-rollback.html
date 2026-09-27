@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Postgres sequence doesn't roll back with its transaction</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A SERIAL id column had gaps even though nothing was ever deleted</h2>
+    <p>
+      A table with a plain <code>id SERIAL PRIMARY KEY</code> column had
+      visible gaps in its ids - row 41 followed by row 44, with no delete
+      in sight. The app had a validation step inside the same transaction
+      as the insert, which sometimes rolled the insert back. It looked like
+      those rolled-back inserts should never have consumed an id at all.
+    </p>
+
+    <h2>Why: nextval() isn't transactional</h2>
+    <p>
+      <code>SERIAL</code> (and <code>GENERATED ... AS IDENTITY</code>) is
+      backed by a separate sequence object, and <code>nextval()</code> is
+      deliberately excluded from normal MVCC/transaction rollback - it's
+      documented as non-transactional specifically so concurrent
+      transactions never have to block on each other just to get a unique
+      number.
+    </p>
+    <pre>BEGIN;
+INSERT INTO widgets (name) VALUES ('test'); -- consumes id 44 from the sequence
+ROLLBACK;                                   -- the insert is undone, id 44 is not returned
+
+INSERT INTO widgets (name) VALUES ('real one'); -- gets id 45, not 44</pre>
+    <p>
+      Once <code>nextval()</code> hands out a number, that number is gone
+      for good, whether the transaction that requested it commits, rolls
+      back, or the whole connection crashes mid-transaction. The sequence
+      only ever moves forward.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      A gap in a sequence-backed id column is not evidence of a deleted
+      row or a bug - it's the normal, documented cost of sequences being
+      fast and non-blocking under concurrency. If a column genuinely needs
+      to be gap-free (an invoice number, say), a sequence is the wrong tool
+      for it; that needs an explicit locking scheme instead.
+    </p>
+  </article>
+</main>
+</body>
+</html>
