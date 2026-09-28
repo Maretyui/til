@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a Paper plugin's Player.teleport() can land in an unloaded chunk</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "/home" warp command sometimes dropped players through the floor</h2>
+    <p>
+      A warp plugin called the plain Bukkit API,
+      <code>player.teleport(location)</code>, to send players to a saved
+      location. Most of the time it worked fine. Occasionally, on a
+      warp nobody had visited in a while, the player would spawn falling
+      through void or standing on nothing until the chunk finished
+      generating under their feet a moment later.
+    </p>
+
+    <h2>Why: teleport() doesn't wait for the destination chunk to be ready</h2>
+    <p>
+      <code>Player.teleport()</code> is synchronous and returns as soon
+      as the entity's position is updated - it does not block until the
+      target chunk is loaded (or generated, if it doesn't exist yet).
+      If the destination chunk isn't already resident in memory, the
+      player gets moved there anyway and the chunk loads asynchronously
+      afterward, which is exactly the gap where a player can fall or see
+      nothing rendered.
+    </p>
+    <pre>// naive: no guarantee the destination chunk is loaded first
+player.teleport(warpLocation);
+
+// PaperLib's async variant loads (or generates) the chunk first,
+// then teleports once it's actually ready
+PaperLib.teleportAsync(player, warpLocation)
+    .thenAccept(success -> {
+        if (!success) player.sendMessage("Teleport failed.");
+    });</pre>
+    <p>
+      PaperLib's <code>teleportAsync</code> exists specifically to paper
+      over this gap: it requests the chunk, waits for the load/generate
+      to actually finish, and only then performs the teleport - all
+      without blocking the main thread the way a manual
+      <code>chunk.load()</code> call on the server thread would.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      Any teleport to a location that isn't guaranteed to already be
+      loaded - a saved warp, a player-set home, a random coordinate for
+      an event - needs an async-safe teleport helper, not the plain
+      synchronous API. It only fails intermittently, which is exactly
+      what made it easy to miss in testing on chunks that were already
+      loaded from normal play.
+    </p>
+  </article>
+</main>
+</body>
+</html>

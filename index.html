@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/094-paper-teleport-unloaded-chunk.html">
+        A Paper plugin's Player.teleport() can land in an unloaded chunk
+        <small>minecraft — teleport() is synchronous but doesn't wait for the destination chunk to load or generate first, so a warp to a rarely-visited location can drop the player through the floor; PaperLib.teleportAsync() waits for the chunk before moving them</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/093-abortcontroller-noop-after-settle.html">
         Calling abort() after a fetch already settled is a silent no-op
         <small>web — AbortController only interrupts a fetch that's still in flight; once the promise has resolved or rejected, abort() does nothing and throws nothing, so a mount-guard ref is still needed alongside it</small>
