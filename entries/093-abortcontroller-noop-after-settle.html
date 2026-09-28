@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: calling abort() after a fetch already settled is a silent no-op</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "cancel on unmount" cleanup wasn't actually cancelling anything</h2>
+    <p>
+      A component fired a <code>fetch()</code> on mount and called
+      <code>controller.abort()</code> in its cleanup function, the usual
+      pattern for avoiding a "set state on an unmounted component"
+      warning. The warning kept showing up anyway on fast navigations,
+      as if the abort call was being ignored.
+    </p>
+
+    <h2>Why: abort() only matters while the request is still in flight</h2>
+    <p>
+      <code>AbortController.abort()</code> works by rejecting the
+      controller's <code>signal</code>, which <code>fetch()</code> checks
+      while the request is pending. Once a response has already come back
+      and the fetch promise has settled - resolved or rejected - there is
+      nothing left for the signal to interrupt. Calling <code>abort()</code>
+      at that point does nothing and throws no error either; it's just a
+      no-op.
+    </p>
+    <pre>const controller = new AbortController();
+const req = fetch(url, { signal: controller.signal });
+
+req.then((res) => res.json()).then((data) => {
+  setState(data); // this line can still run even if abort() is called
+});                // right after, because the fetch already resolved
+
+// later, in a cleanup function:
+controller.abort(); // too late - does nothing, no error, no rejection</pre>
+    <p>
+      The actual race was in the <code>.then()</code> chain, not the
+      fetch itself: the response could land in the gap between the
+      network call finishing and the cleanup function running, and
+      <code>abort()</code> has no power over code that already has the
+      resolved value in hand.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      <code>AbortController</code> only prevents work that the fetch
+      itself is still doing - it can't retroactively stop a
+      <code>.then()</code> callback from running once the promise has
+      already resolved. A component still needs its own "am I still
+      mounted" guard (a ref flip on cleanup, checked before
+      <code>setState</code>) alongside <code>abort()</code>, not instead
+      of it.
+    </p>
+  </article>
+</main>
+</body>
+</html>

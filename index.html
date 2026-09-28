@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/093-abortcontroller-noop-after-settle.html">
+        Calling abort() after a fetch already settled is a silent no-op
+        <small>web — AbortController only interrupts a fetch that's still in flight; once the promise has resolved or rejected, abort() does nothing and throws nothing, so a mount-guard ref is still needed alongside it</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/092-postgres-sequence-gaps-on-rollback.html">
         A Postgres sequence doesn't roll back with its transaction
         <small>infra — nextval() is deliberately non-transactional so concurrent inserts never block on each other; a rolled-back insert still permanently consumes the id it grabbed, so gaps in a SERIAL column are normal, not evidence of a delete</small>
