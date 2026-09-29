@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: discord.js quietly deprecated the ephemeral: true reply option</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A working ephemeral reply started printing a deprecation warning</h2>
+    <p>
+      A slash command handler replied with
+      <code>interaction.reply({ content, ephemeral: true })</code> to
+      keep a status message visible only to the user who ran it. It
+      still worked, but a recent discord.js upgrade started logging a
+      deprecation warning on every single call, which was easy to miss
+      buried between normal request logs.
+    </p>
+
+    <h2>Why: ephemeral is now a bit flag, not a boolean option</h2>
+    <p>
+      Discord's own API moved ephemeral-ness (and several other reply
+      behaviors, like suppressing embeds) into a generic
+      <code>flags</code> bitfield on the message payload instead of
+      one-off boolean fields. discord.js followed suit: the
+      <code>ephemeral</code> shorthand still works for backward
+      compatibility, but it's marked deprecated in favor of setting
+      <code>MessageFlags.Ephemeral</code> directly.
+    </p>
+    <pre>// deprecated, still functions but warns
+await interaction.reply({ content: 'Done.', ephemeral: true });
+
+// current form
+const { MessageFlags } = require('discord.js');
+await interaction.reply({
+    content: 'Done.',
+    flags: MessageFlags.Ephemeral,
+});
+
+// flags are combinable, e.g. ephemeral + no link embeds
+await interaction.reply({
+    content: 'https://example.com',
+    flags: MessageFlags.Ephemeral | MessageFlags.SuppressEmbeds,
+});</pre>
+    <p>
+      The gotcha: <code>flags</code> and <code>ephemeral</code> can't
+      both be passed in the same call - discord.js throws if it sees
+      both, so a mechanical find-and-replace across a codebase needs to
+      actually remove the old key, not just add the new one alongside
+      it.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      When a wrapper library's "just pass a boolean" shorthand gets
+      deprecated in favor of a bitfield, it's usually because the
+      underlying API grew more flags that boolean couldn't represent
+      cleanly. Worth switching early, since the shorthand tends to get
+      removed entirely in a later major version rather than staying
+      around forever.
+    </p>
+  </article>
+</main>
+</body>
+</html>
