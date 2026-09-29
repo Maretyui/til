@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/096-journalctl-vacuum-size-skips-active-journal.html">
+        journalctl --vacuum-size doesn't touch the currently-open journal file
+        <small>infra — vacuum only deletes sealed, archived journal segments; the active system.journal file being written to is exempt no matter how large it grows, so a manual journalctl --rotate has to happen first before vacuuming actually frees space</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/095-discord-ephemeral-flags-replace-boolean.html">
         discord.js quietly deprecated the ephemeral: true reply option
         <small>discord bots — Discord moved ephemeral-ness into a generic flags bitfield (MessageFlags.Ephemeral) instead of a boolean field; the old ephemeral: true shorthand still works but warns, and can't be combined with flags in the same call</small>

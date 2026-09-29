@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: journalctl --vacuum-size doesn't touch the currently-open journal file</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A disk-space alert didn't budge after running journalctl --vacuum-size</h2>
+    <p>
+      A host was flagged for low disk space, and
+      <code>/var/log/journal</code> looked like the obvious culprit.
+      Running <code>journalctl --vacuum-size=200M</code> reported success
+      and deleted a handful of old files, but <code>df</code> barely
+      moved - a multi-gigabyte journal directory stayed multi-gigabyte.
+    </p>
+
+    <h2>Why: vacuum only removes archived files, not the active one</h2>
+    <p>
+      systemd-journald keeps logs in rotated segments. Only sealed,
+      <em>archived</em> segments (named like
+      <code>system@&lt;id&gt;-...-...journal</code>) are eligible for
+      <code>--vacuum-size</code>/<code>--vacuum-time</code>/<code>--vacuum-files</code>
+      to delete. The single <code>system.journal</code> file currently
+      being written to is exempt no matter how large it's grown -
+      vacuuming can't touch a file the daemon still has open for
+      writes.
+    </p>
+    <pre># shows how big the live file actually is
+journalctl --disk-usage
+
+# does nothing for system.journal itself, only archived segments
+journalctl --vacuum-size=200M
+
+# force a rotation first, which seals the active file into an
+# archived one - only then does vacuum have something to remove
+journalctl --rotate
+journalctl --vacuum-size=200M</pre>
+    <p>
+      In this case the active file alone had grown past the configured
+      <code>SystemMaxUse</code> because a noisy service was logging in
+      a tight loop and no rotation had happened recently - rotating
+      first, then vacuuming, is what actually freed the space.
+    </p>
+
+    <h2>The actual lesson</h2>
+    <p>
+      "Vacuum" and "rotate" are two separate, ordered operations, not
+      one command that does both. If disk usage doesn't drop after a
+      vacuum, check whether the bulk of it is sitting in the still-open
+      active journal - a manual <code>--rotate</code> is the missing
+      step, not a bigger <code>--vacuum-size</code> number.
+    </p>
+  </article>
+</main>
+</body>
+</html>
