@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: :is() keeps its highest-specificity argument, :where() doesn't</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Swapping :where() for :is() silently changed which rule won</h2>
+    <p>
+      A shared selector list like <code>.card p, .card ul, .card ol</code>
+      got collapsed into <code>.card :is(p, ul, ol)</code> to shorten it —
+      purely a readability change, or so it seemed. A more specific rule
+      elsewhere that used to lose to a later `.card ul` override suddenly
+      started winning instead, and the override stopped applying.
+    </p>
+    <h2>Why: :is() isn't specificity-free, :where() is</h2>
+    <p>
+      Both <code>:is()</code> and <code>:where()</code> match the same
+      elements, but they're scored completely differently. <code>:where()</code>
+      always contributes zero specificity, no matter what's inside it.
+      <code>:is()</code> instead takes on the specificity of its single
+      <em>most specific</em> argument:
+    </p>
+    <pre><code>/* :where() — contributes (0,0,0), same as no selector at all */
+.card :where(p, ul, ol) { margin-bottom: 1rem; }
+
+/* :is() — contributes the specificity of ".highlighted",
+   i.e. (0,1,0), even though the plain "p"/"ul" branches match too */
+.card :is(p, ul, ol.highlighted) { margin-bottom: 1rem; }</code></pre>
+    <p>
+      In the incident above, the original comma-separated list had each
+      branch at plain-element specificity. Collapsing it into
+      <code>:is()</code> was specificity-neutral only because every
+      branch happened to be equally specific — the bug would have
+      surfaced immediately if any branch had included a class or id, the
+      way <code>ol.highlighted</code> does here.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>:is()</code> is a shorthand for "any of these selectors", not
+      a specificity-neutral grouping construct — reach for
+      <code>:where()</code> when the goal is purely to shorten a selector
+      list without touching the cascade, and reserve <code>:is()</code>
+      for when inheriting the highest-specificity branch is actually
+      wanted.
+    </p>
+  </article>
+</main>
+</body>
+</html>

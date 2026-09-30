@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/097-css-is-where-specificity.html">
+        :is() keeps its highest-specificity argument, :where() doesn't
+        <small>css — :where() always contributes zero specificity no matter what's inside it, but :is() takes on the specificity of its single most specific argument, so collapsing a selector list into :is() isn't specificity-neutral unless every branch was equally specific to begin with</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/096-journalctl-vacuum-size-skips-active-journal.html">
         journalctl --vacuum-size doesn't touch the currently-open journal file
         <small>infra — vacuum only deletes sealed, archived journal segments; the active system.journal file being written to is exempt no matter how large it grows, so a manual journalctl --rotate has to happen first before vacuuming actually frees space</small>
