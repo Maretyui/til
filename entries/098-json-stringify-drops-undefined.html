@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: JSON.stringify drops undefined object properties but keeps array holes as null</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A cache payload had fewer keys after a round trip than before it</h2>
+    <p>
+      An object built from a form had a few optional fields set to
+      <code>undefined</code> when left blank, rather than omitted
+      entirely. It got <code>JSON.stringify</code>'d into a cache entry,
+      then read back out with <code>JSON.parse</code> — and code that
+      checked <code>'discount' in parsed</code> to decide whether a
+      field had ever been touched started getting the wrong answer. The
+      key wasn't missing before the round trip. It was missing after.
+    </p>
+    <h2>Why: undefined isn't valid JSON, so stringify just skips it</h2>
+    <p>
+      JSON has no <code>undefined</code> value, so
+      <code>JSON.stringify</code> doesn't error on it and doesn't
+      coerce it to <code>null</code> either — for a plain object
+      property, it drops the key outright:
+    </p>
+    <pre><code>JSON.stringify({ a: 1, b: undefined, c: 3 });
+// '{"a":1,"c":3}'  — "b" is just gone
+
+JSON.stringify([1, undefined, 3]);
+// '[1,null,3]'  — same value, kept as null to preserve array length</code></pre>
+    <p>
+      The asymmetry is the trap: the exact same <code>undefined</code>
+      value is silently deleted inside an object but silently converted
+      to <code>null</code> inside an array, because an array's indices
+      have to stay contiguous and a hole would shift every later index.
+      Nested objects and <code>toJSON()</code> methods go through the
+      same rule, so a deeply nested optional field disappears the same
+      way.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Don't rely on <code>'key' in obj</code> or
+      <code>Object.keys(obj).length</code> surviving a
+      <code>JSON.stringify</code>/<code>JSON.parse</code> round trip if
+      any property might be <code>undefined</code> — either normalize
+      optional fields to <code>null</code> before serializing, or check
+      with <code>obj.key === undefined</code> after parsing instead of
+      a presence check, since both "never set" and "explicitly cleared"
+      now look identical anyway.
+    </p>
+  </article>
+</main>
+</body>
+</html>
