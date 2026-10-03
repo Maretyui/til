@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: 100vh includes the space mobile browser UI is about to cover</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A full-height hero section left a gap at the bottom on phones</h2>
+    <p>
+      A <code>height: 100vh</code> hero section looked right in a desktop
+      browser and in Chrome DevTools' device emulation, but on an actual
+      phone, loading the page left a strip of the page background visible
+      below the hero, as if it were a few dozen pixels short.
+    </p>
+    <h2>Why: 100vh is the largest possible viewport, not the current one</h2>
+    <p>
+      Mobile Safari and Chrome show and hide their own address bar/toolbar
+      chrome as the page scrolls. <code>100vh</code> is defined against the
+      <em>largest</em> viewport size — the one with the browser UI
+      collapsed — so right after a fresh page load, while the address bar
+      is still fully visible, the actual visible area is shorter than
+      <code>100vh</code> says it is. The element isn't too short; the
+      viewport it's measured against is temporarily taller than what's
+      on screen.
+    </p>
+    <pre><code>/* Sized against the collapsed-chrome viewport - taller than
+   what's actually visible right after a fresh page load */
+.hero { height: 100vh; }
+
+/* Sized against whatever viewport height is true right now,
+   chrome included */
+.hero { height: 100dvh; }</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>dvh</code> (dynamic viewport height) tracks the browser
+      chrome's current state instead of assuming the smallest or largest
+      case; <code>lvh</code>/<code>svh</code> exist too for when the
+      largest/smallest extremes are specifically wanted. For anything
+      meant to fill "the screen" on mobile, <code>100dvh</code> is the
+      one that actually matches what the user sees at any given moment,
+      with <code>100vh</code> kept only as a fallback for the handful of
+      older browsers that don't support the newer units yet.
+    </p>
+  </article>
+</main>
+</body>
+</html>
