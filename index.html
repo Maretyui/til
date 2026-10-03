@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/099-100vh-vs-100dvh-mobile.html">
+        100vh includes the space mobile browser UI is about to cover
+        <small>web dev — 100vh is sized against the browser's largest possible viewport (chrome collapsed), so right after a fresh page load it's taller than what's actually visible; 100dvh tracks the current chrome state instead and is the one that actually matches the screen</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/098-json-stringify-drops-undefined.html">
         JSON.stringify drops undefined object properties, but keeps array holes as null
         <small>web dev — the same undefined value vanishes from an object key but survives as null inside an array, so a cache round trip can silently turn "never set" and "explicitly cleared" into the same thing</small>
