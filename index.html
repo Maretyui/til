@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/100-paper-reload-command-corrupts-state.html">
+        Paper's /reload command is a last resort, not a quick config-apply
+        <small>Minecraft server administration — /reload re-reads configs but doesn't restart the JVM, so plugins with cached world/entity references, scheduled tasks, or event listeners can end up pointing at half-replaced internal state; a real process restart is the only reload that gives every plugin's onDisable()/onEnable() lifecycle a clean pass</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/099-100vh-vs-100dvh-mobile.html">
         100vh includes the space mobile browser UI is about to cover
         <small>web dev — 100vh is sized against the browser's largest possible viewport (chrome collapsed), so right after a fresh page load it's taller than what's actually visible; 100dvh tracks the current chrome state instead and is the one that actually matches the screen</small>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Paper's /reload command is a last resort, not a quick way to apply a config change</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A config tweak via /reload left two plugins silently broken</h2>
+    <p>
+      A quick permissions config edit got applied with <code>/reload</code>
+      instead of a full server restart, since restarting would have kicked
+      everyone on at the time. Everything looked fine immediately after —
+      the new permissions worked — but over the next hour two unrelated
+      plugins started throwing errors on events they'd handled fine for
+      days, and a scheduled task from a third plugin just stopped firing
+      entirely.
+    </p>
+    <h2>Why: /reload only reloads plugin.yml files, not the JVM state behind them</h2>
+    <p>
+      <code>/reload</code> re-reads <code>server.properties</code> and
+      plugin configs and re-registers plugin.yml entries, but it does not
+      restart the JVM or give plugins a real unload/reload lifecycle the
+      way a process restart does. Plugins that registered scheduled tasks,
+      event listeners, or cached references to Bukkit's world/entity
+      objects keep those old references around after the command line
+      says "Reload complete" — some of which now point at half-replaced
+      internal server state, since core server classes themselves aren't
+      reinitialized consistently across that boundary.
+    </p>
+    <pre><code># Looks safe, isn't:
+/reload confirm
+
+# What actually reloads cleanly:
+# a real process restart (systemctl restart, or just stopping and
+# starting the server jar), which gives every plugin's onDisable()/
+# onEnable() lifecycle a real pass instead of a half-applied one</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Paper's own startup warning about <code>/reload</code> being
+      unsupported isn't boilerplate caution — it's describing a real
+      failure mode, not a hypothetical one. A config-only change that
+      doesn't need new plugin code can usually be applied with a
+      plugin-specific reload command instead (most expose their own
+      <code>/pluginname reload</code> that only touches that plugin's own
+      state); anything touching core server behavior is safer with a full
+      restart during a maintenance window than with <code>/reload</code>
+      at a "convenient" moment.
+    </p>
+  </article>
+</main>
+</body>
+</html>
