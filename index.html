@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/101-requestanimationframe-background-tab-throttle.html">
+        requestAnimationFrame stops running in a backgrounded tab
+        <small>web dev — browsers throttle rAF to roughly once a second once a tab loses focus to save power, so a per-frame delta used for audio/animation timing balloons on the next callback; anchor timing to an absolute timestamp and catch up in one jump instead</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/100-paper-reload-command-corrupts-state.html">
         Paper's /reload command is a last resort, not a quick config-apply
         <small>Minecraft server administration — /reload re-reads configs but doesn't restart the JVM, so plugins with cached world/entity references, scheduled tasks, or event listeners can end up pointing at half-replaced internal state; a real process restart is the only reload that gives every plugin's onDisable()/onEnable() lifecycle a clean pass</small>

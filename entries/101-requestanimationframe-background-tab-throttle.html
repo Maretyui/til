@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: requestAnimationFrame stops running in a backgrounded tab</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A step sequencer's timing drifted by seconds after switching tabs</h2>
+    <p>
+      A little web-audio step sequencer tracked elapsed time with
+      <code>performance.now()</code> deltas read inside a
+      <code>requestAnimationFrame</code> loop, used both to advance the
+      playhead and to schedule the next note. Switching to another tab for
+      a minute and coming back left the sequencer wildly behind where the
+      audio clock actually was, as if it had been paused the whole time.
+    </p>
+    <h2>Why: a backgrounded tab throttles rAF down to roughly once a second</h2>
+    <p>
+      <code>requestAnimationFrame</code> callbacks are tied to the page
+      actually painting. Once a tab is backgrounded, most browsers stop
+      painting it and throttle its rAF queue to about 1 call/second (some
+      go lower, or stop it entirely) to save battery and CPU. Any timing
+      logic that assumes "this callback fires every ~16ms" silently breaks
+      the moment the tab loses focus — the callback still runs, just far
+      less often, so a delta computed between calls balloons.
+    </p>
+    <pre><code>// Looks fine while the tab is focused, drifts hard once backgrounded
+let last = performance.now();
+function tick(now) {
+  const dt = now - last; // can be ~1000ms+ after a background gap
+  last = now;
+  advanceSequencer(dt);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+// Anchor to wall-clock time instead of trusting rAF's call frequency
+const startedAt = performance.now();
+let stepsPlayed = 0;
+function tick(now) {
+  const elapsed = now - startedAt;
+  const stepsDue = Math.floor(elapsed / stepDurationMs);
+  while (stepsPlayed < stepsDue) {
+    playStep(stepsPlayed);
+    stepsPlayed++;
+  }
+  requestAnimationFrame(tick);
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Treat <code>requestAnimationFrame</code> purely as a signal to
+      re-render, never as a metronome. Anything that has to stay correct
+      across a backgrounded tab — audio scheduling, countdowns, game
+      state — needs to compute "where should we be right now" from an
+      absolute timestamp (or the Web Audio clock, which keeps running
+      regardless of tab visibility) and catch up in one jump, instead of
+      accumulating a per-frame delta that assumes frames arrive on a
+      regular schedule.
+    </p>
+  </article>
+</main>
+</body>
+</html>
