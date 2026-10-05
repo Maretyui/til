@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/103-discord-bulk-delete-14-day-limit.html">
+        Discord's bulk-delete endpoint rejects anything older than 14 days
+        <small>discord bots — channel.bulkDelete() 400s the moment even one message in the batch is past two weeks old; pass filterOld to drop them from the batch silently instead, and fall back to individual (rate-limited) deletes for messages that actually need to go</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/102-focus-visible-vs-focus.html">
         :focus-visible only shows the ring for keyboard focus, :focus fires on every click too
         <small>css — a custom focus ring written against :focus lights up on mouse and touch clicks as well as keyboard navigation; :focus-visible matches the browser's own "this is probably a keyboard/AT user" heuristic, so pairing it with :focus:not(:focus-visible) keeps the ring for Tab while skipping it for clicks</small>

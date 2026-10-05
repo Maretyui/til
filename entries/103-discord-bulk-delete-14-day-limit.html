@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord's bulk-delete endpoint rejects anything older than 14 days</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "clear old messages" moderation command worked fine, then started 400ing</h2>
+    <p>
+      A bot command let moderators purge up to 100 messages from a
+      channel using <code>channel.bulkDelete(messages)</code>. It worked
+      every time in testing against a busy channel, then started
+      throwing a 400 the first time someone ran it against a quieter
+      channel where the oldest selected messages had been sitting
+      untouched for a while.
+    </p>
+    <h2>Why: bulk delete silently refuses to touch anything past 14 days old</h2>
+    <p>
+      Discord's bulk-delete endpoint is explicitly scoped to recent
+      messages — anything older than two weeks has to be deleted one at
+      a time through the regular single-message delete endpoint
+      instead. discord.js's <code>bulkDelete()</code> has a
+      <code>filterOld</code> option that silently drops the too-old
+      messages from the batch rather than erroring, but only if it's
+      passed explicitly; calling it with a raw array of fetched
+      messages and no second argument hits the API's hard rejection the
+      moment even one message in the batch is too old.
+    </p>
+    <pre><code>// Throws a 400 if any message in the collection is >14 days old
+const messages = await channel.messages.fetch({ limit: 100 });
+await channel.bulkDelete(messages);
+
+// Drops the too-old ones from the batch instead of erroring
+await channel.bulkDelete(messages, true); // filterOld = true
+
+// Anything that still needs deleting goes one by one
+const tooOld = messages.filter((m) => Date.now() - m.createdTimestamp > 14 * 24 * 60 * 60 * 1000);
+for (const msg of tooOld.values()) {
+  await msg.delete();
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A "delete these messages" bulk command needs a fallback path for
+      old messages from day one, not just a happy path for recent ones
+      — either pass <code>filterOld</code> and accept that some
+      messages silently won't be removed, or split the batch up front
+      and fall back to single deletes (which are also individually
+      rate-limited, so that path is much slower for a large purge).
+    </p>
+  </article>
+</main>
+</body>
+</html>
