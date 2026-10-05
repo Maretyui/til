@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: :focus-visible only shows the ring for keyboard focus</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A client asked why every button got an ugly blue ring on tap</h2>
+    <p>
+      A custom button component had <code>outline: none</code> removed
+      in favor of a nicer focus style written against <code>:focus</code>.
+      It looked right on desktop. On the client's phone, every single tap
+      on every button lit up the same ring — not just the one being
+      navigated to with a keyboard, which was the only case the design
+      was meant for.
+    </p>
+    <h2>Why: <code>:focus</code> matches on any focus, mouse or touch included</h2>
+    <p>
+      <code>:focus</code> doesn't know or care how the element became
+      focused — clicking, tapping, or tabbing to it all match the same
+      selector. The old "remove the ugly default ring" fix of
+      <code>*:focus { outline: none }</code> plus a custom style run into
+      exactly this: the custom ring now fires on every pointer
+      interaction too, which is the visual noise keyboard-only focus
+      rings were trying to avoid in the first place.
+      <code>:focus-visible</code> matches the browser's own heuristic for
+      "the user probably wants to see where focus is" — keyboard
+      navigation, programmatic <code>.focus()</code> in some cases — and
+      skips it for a plain mouse or touch click on most elements.
+    </p>
+    <pre><code>/* Fires on every click/tap too — not what was wanted */
+button:focus {
+  outline: 2px solid var(--accent);
+}
+
+/* Only the browser's own "this was probably a keyboard/AT user" cases */
+button:focus-visible {
+  outline: 2px solid var(--accent);
+}
+button:focus:not(:focus-visible) {
+  outline: none; /* mouse/touch focus gets no ring at all */
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Never blanket-disable the focus ring with <code>outline: none</code>
+      on <code>:focus</code> alone — that silently breaks keyboard
+      navigation for every visitor who tabs through the page.
+      <code>:focus-visible</code> is the selector that actually encodes
+      "show a ring only when it's useful", and pairing it with
+      <code>:focus:not(:focus-visible)</code> covers the "hide it
+      otherwise" half without removing focus indication altogether.
+    </p>
+  </article>
+</main>
+</body>
+</html>
