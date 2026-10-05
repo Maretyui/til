@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/102-focus-visible-vs-focus.html">
+        :focus-visible only shows the ring for keyboard focus, :focus fires on every click too
+        <small>css — a custom focus ring written against :focus lights up on mouse and touch clicks as well as keyboard navigation; :focus-visible matches the browser's own "this is probably a keyboard/AT user" heuristic, so pairing it with :focus:not(:focus-visible) keeps the ring for Tab while skipping it for clicks</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/101-requestanimationframe-background-tab-throttle.html">
         requestAnimationFrame stops running in a backgrounded tab
         <small>web dev — browsers throttle rAF to roughly once a second once a tab loses focus to save power, so a per-frame delta used for audio/animation timing balloons on the next callback; anchor timing to an absolute timestamp and catch up in one jump instead</small>
