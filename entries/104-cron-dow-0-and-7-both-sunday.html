@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: cron's day-of-week field treats 0 and 7 as the same Sunday</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "skip Sundays" cron rule quietly also skipped Sundays twice a week on paper, and once for real</h2>
+    <p>
+      A nightly job needed to run every day except Sunday, so the
+      day-of-week field got written as a range that explicitly excluded
+      what looked like the one day it shouldn't run on. The job still
+      fired correctly every day — the surprise was on the monitoring
+      side, where a dashboard built from the same cron expression
+      listed Sunday as a run day under one interpretation and not under
+      another, because two different tools disagreed about what number
+      Sunday even is.
+    </p>
+    <h2>Why: the day-of-week field has two valid spellings for Sunday</h2>
+    <p>
+      Standard cron syntax allows <code>0</code> <em>and</em>
+      <code>7</code> for Sunday in the day-of-week field — both are
+      valid, both mean the same day, and most cron implementations
+      accept either without complaint. The field otherwise runs
+      Monday–Saturday as <code>1</code>–<code>6</code>, so it's easy to
+      assume the week just wraps from <code>6</code> back to
+      <code>0</code> and stop there, never noticing <code>7</code> is
+      also live. A hand-written range like <code>1-6</code> for
+      "weekdays plus Saturday" is correct either way, but a tool that
+      generates or parses cron expressions and only normalizes one of
+      the two spellings will misreport schedules that use the other —
+      exactly the dashboard mismatch that surfaced this, not a broken
+      job.
+    </p>
+    <pre><code># Both of these mean "every day except Sunday" - 0 and 7 are
+# interchangeable for Sunday, not two different days
+0 3 * * 1-6
+0 3 * * 1,2,3,4,5,6
+
+# A naive parser that only checks for "7" to mean Sunday will
+# misclassify this as including Sunday, since it also matches 0
+0 3 * * 0,1,2,3,4,5,6</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Writing cron expressions by hand, stick to one spelling
+      consistently (most people default to <code>0</code>) so the
+      expression at least reads unambiguously. Writing code that
+      parses or generates them, normalize both <code>0</code> and
+      <code>7</code> to the same value up front — treating only one of
+      them as "real" Sunday is the kind of bug that stays invisible
+      until two tools built against different assumptions are compared
+      side by side.
+    </p>
+  </article>
+</main>
+</body>
+</html>

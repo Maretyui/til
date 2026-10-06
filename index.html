@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/104-cron-dow-0-and-7-both-sunday.html">
+        cron's day-of-week field treats 0 and 7 as the same Sunday
+        <small>infra — a hand-written "every day except Sunday" range works fine either way, but a tool that parses or generates cron expressions and only normalizes one of the two valid Sunday spellings will misreport schedules written with the other</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/103-discord-bulk-delete-14-day-limit.html">
         Discord's bulk-delete endpoint rejects anything older than 14 days
         <small>discord bots — channel.bulkDelete() 400s the moment even one message in the batch is past two weeks old; pass filterOld to drop them from the batch silently instead, and fall back to individual (rate-limited) deletes for messages that actually need to go</small>
