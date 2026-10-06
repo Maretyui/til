@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord's message content intent has to be enabled in two places, not one</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A keyword-triggered bot command worked locally and then did nothing after deploy</h2>
+    <p>
+      A bot feature watched for plain messages containing a certain
+      keyword (no slash command, just regular chat) and reacted to
+      them. It worked immediately in local testing against a dev
+      server, then went completely silent after the bot was invited to
+      a different server — no errors, no crashes, the message handler
+      just never matched anything, because <code>message.content</code>
+      was arriving as an empty string on every message.
+    </p>
+    <h2>Why: MESSAGE_CONTENT is a privileged intent with two separate switches</h2>
+    <p>
+      Reading the text of messages the bot didn't author requires the
+      <code>MessageContent</code> gateway intent, and that intent is
+      privileged — declaring it in code
+      (<code>GatewayIntentBits.MessageContent</code>) is only half of
+      what's needed. It also has to be toggled on for the application
+      in the Discord Developer Portal, under
+      Bot → Privileged Gateway Intents. Skip the portal switch and the
+      gateway doesn't reject the connection or throw — it just silently
+      strips <code>content</code> down to an empty string on every
+      message event, which is exactly indistinguishable from "the
+      keyword genuinely isn't in this message" unless you already know
+      to suspect it.
+    </p>
+    <pre><code>const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    // Also toggle "Message Content Intent" on in the Developer Portal
+    // under this application's Bot settings - this line alone is not
+    // enough, and nothing here will warn you if you forget the portal step
+    GatewayIntentBits.MessageContent,
+  ],
+});</code></pre>
+    <p>
+      It stayed invisible locally because the dev server's bot
+      application already had the portal toggle flipped on from an
+      earlier project; a second bot application created for testing a
+      different server started from the toggle's actual default (off),
+      which is where the empty-string behavior showed up.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any gateway intent flagged "privileged" (message content,
+      presence, and the guild members intent) needs the matching
+      portal toggle checked on a per-application basis, separately from
+      whatever's declared in code — and because verified bots in 100+
+      servers need Discord's approval to keep a privileged intent at
+      all, that portal setting is worth confirming first whenever a
+      content-reading feature "does nothing" with no error anywhere in
+      the logs.
+    </p>
+  </article>
+</main>
+</body>
+</html>
