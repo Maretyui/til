@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/106-postgres-unique-null-not-distinct.html">
+        a UNIQUE column in Postgres happily stores more than one NULL
+        <small>databases — SQL's three-valued logic treats NULL = NULL as unknown, not true, so a bare UNIQUE constraint only dedupes non-NULL values; Postgres 15's UNIQUE NULLS NOT DISTINCT (or a partial unique index) is needed to cap NULLs at one too</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/105-discord-message-content-privileged-intent.html">
         Discord's message content intent has to be enabled in two places, not one
         <small>discord bots — declaring GatewayIntentBits.MessageContent in code isn't enough; the matching Privileged Gateway Intents toggle in the Developer Portal is a separate switch, and skipping it silently empties message.content instead of erroring</small>
