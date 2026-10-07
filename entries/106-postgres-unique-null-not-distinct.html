@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a UNIQUE column in Postgres happily stores more than one NULL</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A nullable "external id" column kept duplicating rows past a UNIQUE constraint</h2>
+    <p>
+      A table had an optional <code>external_ref</code> column with a
+      plain <code>UNIQUE</code> constraint on it, meant to stop the same
+      external record from ever being linked twice. Rows that hadn't
+      been linked yet left the column <code>NULL</code> — and dozens of
+      those unlinked rows inserted just fine side by side, which looked
+      like the constraint wasn't being enforced at all.
+    </p>
+    <h2>Why: SQL treats NULL as not equal to itself, and UNIQUE follows that rule</h2>
+    <p>
+      A <code>UNIQUE</code> constraint rejects a new row only if an
+      existing row compares as <em>equal</em> to it on the constrained
+      columns, and in SQL's three-valued logic <code>NULL = NULL</code>
+      doesn't evaluate to true — it evaluates to unknown. So every
+      <code>NULL</code> is treated as distinct from every other
+      <code>NULL</code>, and the constraint has nothing to reject.
+      Postgres isn't unusual here; this is the SQL standard's behavior,
+      and MySQL/SQLite follow it too.
+    </p>
+    <pre><code>create table links (
+  id serial primary key,
+  external_ref text unique
+);
+
+insert into links (external_ref) values (null);
+insert into links (external_ref) values (null); -- succeeds, no conflict
+insert into links (external_ref) values ('abc-123');
+insert into links (external_ref) values ('abc-123'); -- this one fails</code></pre>
+    <p>
+      Postgres 15 added an explicit way to opt out of this if the goal
+      really is "at most one NULL too": <code>UNIQUE NULLS NOT
+      DISTINCT</code> on the column or constraint definition makes all
+      NULLs collide with each other instead of being treated as unique
+      snowflakes.
+    </p>
+    <pre><code>-- Postgres 15+: now a second NULL insert also fails
+alter table links
+  drop constraint links_external_ref_key,
+  add constraint links_external_ref_key
+    unique nulls not distinct (external_ref);</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A bare <code>UNIQUE</code> on a nullable column only dedupes the
+      non-NULL values — if "unlinked"/"not set yet" rows need to be
+      capped at one too, that has to be either
+      <code>NULLS NOT DISTINCT</code> (15+) or a partial unique index
+      with a <code>WHERE</code> clause carving out a separate rule for
+      the NULL case, not the plain constraint alone.
+    </p>
+  </article>
+</main>
+</body>
+</html>
