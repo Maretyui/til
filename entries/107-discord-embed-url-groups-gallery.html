@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord only groups multiple embed images into one gallery if they share the same embed url</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A bot sent four image embeds in one message and Discord rendered four separate cards</h2>
+    <p>
+      A command replied with several screenshots by building one embed
+      per image and sending them all in a single message's
+      <code>embeds</code> array (Discord allows up to 10 per message).
+      The expectation, based on how image galleries look everywhere
+      else in the client, was a single 2x2 grid. Instead every embed
+      rendered as its own full-width card stacked vertically, each with
+      its own border, which looked broken for anything past two images.
+    </p>
+    <h2>Why: the grid is keyed on embed.url, not on the message</h2>
+    <p>
+      Discord only merges sibling embeds into one gallery block when
+      they all have the <em>same</em> top-level <code>url</code> field.
+      The image itself can point anywhere; it's the embed's
+      <code>url</code> — normally only meaningful for making the title
+      clickable — that acts as the grouping key the client checks
+      first. Leave it unset, or set it differently per embed, and each
+      one is treated as an unrelated card and laid out separately.
+    </p>
+    <pre><code>const gallery = screenshots.map((imageUrl) => ({
+  url: 'https://example.com/report/42', // same on every embed in the group
+  image: { url: imageUrl },
+}));
+
+await channel.send({ embeds: gallery });</code></pre>
+    <p>
+      Any stable string works as the shared <code>url</code> — it
+      doesn't need to resolve to a real page, and most bots just reuse
+      the command's own result-page link or a dummy
+      <code>https://</code> placeholder. The only requirement is that
+      every embed destined for the same gallery carries the identical
+      value.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      "Multiple image embeds in one message" and "an image gallery"
+      are not automatically the same thing client-side — grouping is an
+      opt-in keyed on a field that has nothing to do with images, so a
+      gallery that silently degrades into a stack of cards is usually
+      a missing or mismatched <code>url</code>, not a client rendering
+      bug.
+    </p>
+  </article>
+</main>
+</body>
+</html>

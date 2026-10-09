@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/107-discord-embed-url-groups-gallery.html">
+        Discord only groups multiple embed images into one gallery if they share the same embed url
+        <small>discord bots — sending several image embeds in one message renders as stacked separate cards unless every embed's top-level url field is set to the identical value, which is the actual grouping key the client checks for a gallery grid</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/106-postgres-unique-null-not-distinct.html">
         a UNIQUE column in Postgres happily stores more than one NULL
         <small>databases — SQL's three-valued logic treats NULL = NULL as unknown, not true, so a bare UNIQUE constraint only dedupes non-NULL values; Postgres 15's UNIQUE NULLS NOT DISTINCT (or a partial unique index) is needed to cap NULLs at one too</small>
