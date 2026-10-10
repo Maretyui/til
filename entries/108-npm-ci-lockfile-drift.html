@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: npm ci refuses a lockfile that's drifted from package.json, npm install just rewrites it</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A deploy step failed on "npm ci" right after "npm install" had worked fine locally</h2>
+    <p>
+      A dependency got added with a plain <code>npm install some-package</code>,
+      the app ran fine locally, and the change got committed. The deploy
+      pipeline's build step — which runs <code>npm ci</code> instead of
+      <code>npm install</code> for reproducible installs — failed immediately
+      with <code>npm ERR! Missing: some-package from lock file</code>, even
+      though <code>package-lock.json</code> clearly had just been touched by
+      the same commit.
+    </p>
+    <h2>Why: the lockfile was stale, not missing</h2>
+    <p>
+      The install had actually run against a workspace where
+      <code>package-lock.json</code> was briefly out of sync with
+      <code>package.json</code> — a half-finished merge had left the lockfile
+      a commit behind. <code>npm install</code> doesn't care: if it notices
+      <code>package.json</code> and the lockfile disagree, it just resolves
+      the difference and silently rewrites the lockfile to match, no warning
+      printed. <code>npm ci</code> makes the opposite trade-off on purpose —
+      it treats the lockfile as the single source of truth, does a strict
+      equality check against <code>package.json</code> first, and refuses to
+      resolve anything itself:
+    </p>
+    <pre><code># npm install: "these don't match, let me fix that for you"
+npm install
+git diff package-lock.json   # quietly rewritten, no error
+
+# npm ci: "these don't match, that's your problem"
+npm ci
+# npm ERR! Missing: some-package from lock file
+# npm ERR! Clean install a project</code></pre>
+    <p>
+      So the lockfile that got committed wasn't actually regenerated from the
+      final <code>package.json</code> — it was a leftover from a half-done
+      step, and nothing in a normal local workflow would ever surface that,
+      because nobody runs <code>npm ci</code> by habit on their own machine.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>npm install</code> and <code>npm ci</code> are not interchangeable
+      "install my dependencies" commands — one heals a drifted lockfile,
+      the other treats drift as a hard failure by design. Running
+      <code>npm ci</code> locally before pushing (or at least
+      <code>npm install --package-lock-only</code> followed by a diff check)
+      catches this before a pipeline that uses <code>ci</code> does, instead
+      of after.
+    </p>
+  </article>
+</main>
+</body>
+</html>
