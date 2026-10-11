@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: SQLite's foreign_keys pragma is per-connection, not per-database</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Deleting a parent row left orphaned child rows, despite a declared foreign key</h2>
+    <p>
+      A small Discord bot stored data in SQLite with a schema that
+      declared <code>FOREIGN KEY (guild_id) REFERENCES guilds(id) ON
+      DELETE CASCADE</code>. A one-off cleanup script opened its own
+      connection, ran <code>PRAGMA foreign_keys = ON;</code> first, and
+      deleting a guild row there correctly cascaded. The bot's own
+      long-running process never cascaded anything — deleting the same
+      guild through it left every child row behind, silently orphaned.
+    </p>
+    <h2>Why: it's a per-connection setting, and it defaults to off</h2>
+    <p>
+      SQLite enforces foreign keys only when <code>PRAGMA foreign_keys
+      = ON</code> has been run on that specific connection, and that
+      setting does not persist in the database file — it resets to
+      SQLite's default of <code>OFF</code> every time a new connection
+      opens. A migration or seed script that enables it once is only
+      enabling it for its own connection's lifetime; every other
+      connection (the bot's main process, a worker, a REPL opened to
+      poke at the data) starts back at off unless it issues the same
+      pragma itself.
+    </p>
+    <pre><code>-- Cleanup script's connection: cascades deletes correctly
+PRAGMA foreign_keys = ON;
+DELETE FROM guilds WHERE id = 123;
+
+-- A completely separate connection to the same .db file, e.g. the
+-- bot's own long-running process - starts fresh, defaults to OFF:
+DELETE FROM guilds WHERE id = 456;
+-- rows in child tables referencing guild 456 are left behind,
+-- and no constraint violation is ever raised on insert either</code></pre>
+    <p>
+      Connection pools make this worse than a single bad script: even
+      if application startup code runs the pragma once against "the
+      database," most SQLite client libraries hand out a fresh
+      connection (or a pooled one that was opened before that startup
+      code ran) per request or per worker, and each of those needs the
+      pragma re-applied individually — usually from a per-connection
+      "on open" hook, not a one-time call during boot.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Treat <code>PRAGMA foreign_keys = ON</code> the same way as any
+      other per-connection session setting (like <code>PRAGMA
+      journal_mode</code>'s cousin settings that aren't persisted) —
+      wire it into whatever hook fires on every new connection a
+      library opens, not into a migration or startup script that only
+      touches one connection. Declaring the foreign key in the schema
+      is necessary but not sufficient; without the pragma actually set
+      on the connection doing the writing, SQLite accepts the schema
+      and then quietly ignores it.
+    </p>
+  </article>
+</main>
+</body>
+</html>

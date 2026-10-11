@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/109-sqlite-foreign-keys-per-connection.html">
+        SQLite's foreign_keys pragma is per-connection, not per-database
+        <small>databases — a cleanup script enabled PRAGMA foreign_keys = ON on its own connection and cascaded deletes fine; the bot's long-running process never set it on its own connections and left orphaned child rows behind despite a declared FOREIGN KEY, because the setting resets to off on every new connection and isn't stored in the database file</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/108-npm-ci-lockfile-drift.html">
         npm ci refuses a lockfile that's drifted from package.json, npm install just rewrites it
         <small>web dev — a deploy pipeline running npm ci failed on a dependency that npm install had added locally without complaint, because npm ci treats the lockfile as the source of truth and errors on any mismatch instead of silently resolving it like install does</small>
