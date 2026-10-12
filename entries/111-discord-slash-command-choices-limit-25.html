@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord slash command options cap at 25 static choices</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Registering a slash command's 26th choice failed command deployment entirely</h2>
+    <p>
+      A bot command let players pick a map from a growing list using a
+      string option with hard-coded <code>.addChoices(...)</code>
+      entries. Adding the 26th map to the list made the whole command
+      registration call reject with a generic validation error on the
+      options array — not just the new choice, the entire command
+      failed to deploy, leaving the previous version live until the
+      extra choice was noticed and removed again.
+    </p>
+    <h2>Why: 25 choices per option is a hard Discord API limit</h2>
+    <p>
+      Discord's application command schema caps
+      <code>choices</code> on a single option at 25 entries, full
+      stop — there's no pagination or "show more" for static choices,
+      and the API returns a validation error for the whole command
+      body rather than truncating the list for you. It's easy to not
+      notice this limit exists until a list that started small (game
+      modes, regions, roles) organically grows past it.
+    </p>
+    <pre><code>// fine at registration time, then silently becomes a landmine:
+.addStringOption(option =>
+  option.setName('map')
+    .setDescription('Pick a map')
+    .setRequired(true)
+    .addChoices(
+      { name: 'Dust', value: 'dust' },
+      { name: 'Forest', value: 'forest' },
+      // ...23 more...
+      { name: 'Volcano', value: 'volcano' } // #26 -> whole command rejected
+    )
+)</code></pre>
+    <p>
+      The fix that actually scales is dropping static
+      <code>choices</code> for that option and switching to
+      autocomplete instead — <code>setAutocomplete(true)</code> plus
+      an <code>interactionCreate</code> handler that filters the full
+      list server-side based on what the user has typed so far, and
+      returns at most 25 matching suggestions per keystroke. That same
+      25-item cap applies to autocomplete responses too, but it's a
+      per-request slice of an arbitrarily large list rather than a
+      hard ceiling on how many options can ever exist.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any list backing a slash command's static choices is a ticking
+      limit, not just a convenience — if it can plausibly grow (maps,
+      categories, tags, anything admin-editable), build it as
+      autocomplete from day one instead of waiting for the 26th entry
+      to take the whole command down at the next deploy.
+    </p>
+  </article>
+</main>
+</body>
+</html>

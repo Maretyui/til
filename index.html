@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/111-discord-slash-command-choices-limit-25.html">
+        Discord slash command options cap at 25 static choices
+        <small>discord bots — addChoices() on a string option that organically grew to a 26th entry rejected the whole command registration, not just the extra choice; a list that can keep growing (maps, categories, tags) needs autocomplete filtering a larger list server-side instead of a hard-coded static choices array</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/110-pm2-cluster-mode-no-shared-memory.html">
         PM2 cluster mode runs separate Node processes, they don't share in-memory state
         <small>web dev — a rate limiter backed by a module-scope Map worked fine single-instance but silently fragmented across 4 cluster-mode instances, since each pm2 -i instance is its own OS process with its own heap; anything needing cross-instance consistency (rate limits, sessions, caches) has to live in Redis/a database instead of process memory</small>
