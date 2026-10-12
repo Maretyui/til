@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: PM2 cluster mode runs separate Node processes, they don't share in-memory state</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Switching a Node app to PM2 cluster mode broke a simple in-memory rate limiter</h2>
+    <p>
+      A small Express API kept a <code>Map</code> in module scope to
+      count requests per IP for basic rate limiting. It worked fine
+      under <code>pm2 start app.js</code>. Flipping on cluster mode
+      with <code>pm2 start app.js -i 4</code> to use all CPU cores made
+      the limiter effectively stop working: the same IP could blow
+      past the configured limit, and logs showed request counts that
+      never climbed past small, inconsistent numbers no matter how
+      fast the client hammered the endpoint.
+    </p>
+    <h2>Why: -i 4 is four separate processes, not four threads</h2>
+    <p>
+      PM2's cluster mode is Node's built-in <code>cluster</code> module
+      under the hood — each instance is its own OS process with its
+      own heap, forked from the master and load-balanced round-robin
+      by the master's socket handoff. A module-scope <code>Map</code>,
+      counter, or cache only lives inside the one process that created
+      it. With 4 instances, a client's requests get spread across up
+      to 4 completely separate copies of that <code>Map</code>, so the
+      "same" rate limiter sees roughly a quarter of the real traffic in
+      each process and never reaches the configured threshold.
+    </p>
+    <pre><code>// module scope — looks shared, isn't, once cluster mode is on
+const hits = new Map();
+
+app.use((req, res, next) => {
+  const count = (hits.get(req.ip) ?? 0) + 1;
+  hits.set(req.ip, count);
+  if (count > 100) return res.sendStatus(429);
+  next();
+});
+// each of the 4 forked processes has its OWN hits Map</code></pre>
+    <p>
+      The same gap shows up for anything else kept in process memory
+      across cluster instances: an in-memory session store, a
+      feature-flag cache refreshed on a timer, a websocket
+      connection registry, an in-flight-request dedupe table. Each
+      works perfectly in single-instance mode and silently
+      fragments the moment <code>-i</code> goes above 1, with no
+      error — just state that looks inconsistent depending on which
+      instance happened to handle a given request.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Anything that needs to be consistent across cluster instances
+      has to live outside any single process — Redis for rate
+      limiters and session stores, a database row for feature flags,
+      a pub/sub channel for things that need to fan out to every
+      instance. Before relying on cluster mode (or any multi-process
+      deployment) for throughput, audit module-scope state for
+      exactly this: if it would break with two independent copies of
+      the process running side by side, it needs to move out of
+      memory first.
+    </p>
+  </article>
+</main>
+</body>
+</html>
