@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/112-resizeobserver-fires-on-observe.html">
+        ResizeObserver fires once on observe(), before anything resizes
+        <small>web dev — a sidebar widget re-rendered its chart the instant the observer was attached, with no resize having happened; the spec treats starting to watch an element as an implicit first resize, so only the second callback onward actually means the size changed</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/111-discord-slash-command-choices-limit-25.html">
         Discord slash command options cap at 25 static choices
         <small>discord bots — addChoices() on a string option that organically grew to a 26th entry rejected the whole command registration, not just the extra choice; a list that can keep growing (maps, categories, tags) needs autocomplete filtering a larger list server-side instead of a hard-coded static choices array</small>

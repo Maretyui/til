@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: ResizeObserver fires once on observe(), before anything resizes</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "resize" handler ran twice on page load before the user touched anything</h2>
+    <p>
+      A sidebar widget measured its own width with <code>ResizeObserver</code>
+      and re-rendered a chart whenever that width changed, to avoid the
+      classic <code>window.resize</code> problem of firing for every
+      unrelated layout change on the page. The chart library logged a
+      full re-render the instant the observer was attached — before the
+      element had resized, been scrolled into view, or done anything at
+      all.
+    </p>
+    <h2>Why: the spec defines the first callback as unconditional</h2>
+    <p>
+      <code>ResizeObserver</code> doesn't wait for an actual size change
+      before calling the callback the first time. Per spec, calling
+      <code>observe()</code> queues a resize observation that fires on
+      the very next frame regardless of whether the size changed —
+      effectively treating "I just started watching this element" as a
+      resize event in itself. Every later call really does mean the
+      size changed; only that first one is unconditional.
+    </p>
+    <pre><code>const ro = new ResizeObserver((entries) => {
+  // This runs once immediately after observe(), with no resize
+  // having happened yet, and then again on every real resize after.
+  renderChart(entries[0].contentRect.width);
+});
+ro.observe(sidebar);</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Code that assumes the callback only means "this element's size
+      changed" will double-run its initial setup — harmless for a pure
+      re-render like the chart above, but a real bug if that callback
+      also does something with side effects (posting a resize event
+      upstream, incrementing a counter, firing an analytics beacon).
+      If the initial call matters, track whether it's the first entry
+      for that observed element and branch on it; don't assume
+      <code>observe()</code> is a silent no-op until something actually
+      moves.
+    </p>
+  </article>
+</main>
+</body>
+</html>
