@@ -15,6 +15,18 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/114-postgres-add-column-default-rewrite.html">
+        ADD COLUMN with a non-constant DEFAULT locks the whole table
+        <small>databases — a routine ALTER TABLE ADD COLUMN ... DEFAULT now() froze every writer for several seconds; Postgres 11+ only takes the fast metadata-only path for a constant default, a volatile one like now() forces a full table rewrite under an ACCESS EXCLUSIVE lock regardless of table size</small>
+      </a>
+    </li>
+    <li>
+      <a href="entries/113-minecraft-offline-uuid-mismatch.html">
+        Flipping online-mode on a Minecraft server changes every player's UUID
+        <small>minecraft server administration — switching online-mode back to true after testing in offline mode made every returning player load in with a wiped inventory and advancements; offline mode derives a UUID from a hash of the username, online mode uses the real Mojang account UUID, and playerdata is keyed by UUID, so the old file is still on disk, just filed under a UUID nothing looks up anymore</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/112-resizeobserver-fires-on-observe.html">
         ResizeObserver fires once on observe(), before anything resizes
         <small>web dev — a sidebar widget re-rendered its chart the instant the observer was attached, with no resize having happened; the spec treats starting to watch an element as an implicit first resize, so only the second callback onward actually means the size changed</small>
