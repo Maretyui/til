@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Flipping online-mode on a Minecraft server changes every player's UUID</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Every player's inventory and advancements looked wiped after a config change nobody thought was risky</h2>
+    <p>
+      A test server got flipped from <code>online-mode=false</code> back to
+      <code>online-mode=true</code> in <code>server.properties</code> once
+      it was ready to open up to real accounts again. On the next join,
+      every returning player loaded in with a fresh inventory, no
+      advancements, and starting-area spawn coordinates — as if their
+      playerdata had been deleted, even though the <code>world/playerdata/</code>
+      folder was untouched.
+    </p>
+    <h2>Why: the UUID a player is saved under depends on where it came from</h2>
+    <p>
+      Minecraft stores per-player data in <code>world/playerdata/&lt;uuid&gt;.dat</code>,
+      keyed by UUID rather than username. In online mode, that UUID is the
+      player's real Mojang account UUID, looked up from Mojang's servers on
+      join. In offline mode, there's no account to look up, so the server
+      derives a UUID itself — a version-3 (name-based) UUID hashed from the
+      literal string <code>"OfflinePlayer:" + username</code>:
+    </p>
+    <pre><code>// Conceptually, what the server does in offline mode:
+UUID offlineUUID = UUID.nameUUIDFromBytes(
+  ("OfflinePlayer:" + username).getBytes(StandardCharsets.UTF_8)
+);</code></pre>
+    <p>
+      Flipping <code>online-mode</code> swaps which of those two UUIDs a
+      given username resolves to. The old offline-mode <code>.dat</code>
+      file is still sitting in <code>playerdata/</code> on disk, fully
+      intact — it's just filed under a UUID the server no longer looks up
+      for that username, so a brand-new file gets created instead.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Nothing was lost, but nothing migrates automatically either. Going
+      from offline to online mode (or back) on a server with real player
+      progress needs the old <code>&lt;offline-uuid&gt;.dat</code> renamed
+      to the new UUID before players rejoin — or a one-time migration tool
+      that resolves each known username to its online-mode UUID and renames
+      the file (and the matching entries in <code>whitelist.json</code>,
+      <code>ops.json</code>, and <code>usercache.json</code>, which are all
+      also keyed by UUID) accordingly. Treat an online-mode toggle on an
+      already-populated server as a data migration, not a one-line config
+      edit.
+    </p>
+  </article>
+</main>
+</body>
+</html>
