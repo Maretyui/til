@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: ADD COLUMN with a non-constant DEFAULT locks the whole table</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A routine ALTER TABLE on a mid-size table froze every writer for several seconds</h2>
+    <p>
+      Adding a new <code>created_at</code> column to an existing table
+      looked like the safest kind of migration there is — one
+      <code>ALTER TABLE</code> statement, run during a quiet period. Instead
+      it held every other query against that table waiting for a lock for
+      several seconds, long enough to trip a couple of request timeouts
+      elsewhere in the app.
+    </p>
+    <pre><code>ALTER TABLE events
+  ADD COLUMN created_at timestamptz NOT NULL DEFAULT now();</code></pre>
+    <h2>Why: a volatile default has to be computed per row, which means rewriting the table</h2>
+    <p>
+      Since Postgres 11, adding a column with a <em>constant</em> default
+      (a literal, or anything the planner can prove evaluates to the same
+      value for every row) is a fast, metadata-only change — Postgres just
+      records the default and backfills it lazily on read, without
+      touching existing rows on disk. But <code>now()</code> is volatile:
+      it returns a different value on every call, so Postgres can't use
+      that shortcut. It has to actually compute and write the default into
+      every existing row right away, which means rewriting the entire
+      table and holding an <code>ACCESS EXCLUSIVE</code> lock — blocking
+      all reads and writes on it — for as long as that rewrite takes.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any non-constant default (<code>now()</code>,
+      <code>gen_random_uuid()</code>, a sequence via
+      <code>nextval()</code>, anything calling a function) on
+      <code>ADD COLUMN</code> triggers the full rewrite, regardless of
+      table size. The safe pattern is to add the column nullable with no
+      default first, backfill it in batches, then add the
+      <code>NOT NULL</code> constraint (and any default) afterward —
+      each step takes only a brief lock instead of one long one across the
+      whole table:
+    </p>
+    <pre><code>ALTER TABLE events ADD COLUMN created_at timestamptz;
+-- backfill in batches here, e.g. UPDATE ... WHERE created_at IS NULL LIMIT n
+ALTER TABLE events ALTER COLUMN created_at SET DEFAULT now();
+ALTER TABLE events ALTER COLUMN created_at SET NOT NULL;</code></pre>
+    <p>
+      Worth checking the exact default before assuming <code>ADD COLUMN</code>
+      is harmless — a literal default is still the fast path, it's only
+      per-row computed ones that force the rewrite.
+    </p>
+  </article>
+</main>
+</body>
+</html>
