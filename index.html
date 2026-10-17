@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/116-overscroll-behavior-scroll-chaining.html">
+        A scrolled-out modal keeps scrolling the page behind it
+        <small>css — flinging to the bottom of a scrollable modal list handed leftover swipe momentum to the page behind it; touch scroll chaining to the next scrollable ancestor happens regardless of position: fixed or overflow: hidden on the body, overscroll-behavior: contain on the inner scroller stops it at its own boundary</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/115-create-index-concurrently-no-transaction.html">
         CREATE INDEX CONCURRENTLY can't run inside a transaction block
         <small>databases — a migration tool that auto-wraps every file in BEGIN/COMMIT failed outright on CREATE INDEX CONCURRENTLY; it builds the index in two separate transactions to avoid blocking writers, which is structurally incompatible with being nested inside an outer one, so it has to be the only statement in its migration with the wrapper disabled</small>
