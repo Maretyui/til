@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a scrolled-out modal keeps scrolling the page behind it</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Scrolling to the bottom of a modal list kept scrolling the page underneath</h2>
+    <p>
+      A mobile-safe modal with a scrollable list inside it had an
+      annoying bug: flinging a finger to scroll to the bottom of the
+      list, once the list ran out of content to scroll, handed the rest
+      of that swipe's momentum to the page behind the modal — the
+      background jumped, even though the modal itself has
+      <code>position: fixed</code> and the body was visually locked.
+    </p>
+    <h2>Why: scroll chaining is the default, and fixed positioning doesn't stop it</h2>
+    <p>
+      When a scrollable element hits the end of its own scroll range,
+      the browser's default behavior is to let the scroll "chain" to the
+      next scrollable ancestor and keep consuming the gesture there.
+      That's independent of layout — it happens purely because the
+      touch/wheel input has leftover delta once the inner element can't
+      move any further, and <code>overflow: hidden</code> or
+      <code>position: fixed</code> on the body doesn't change how touch
+      scroll chaining is resolved.
+    </p>
+    <pre><code>.modal-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>overscroll-behavior: contain</code> on the scrollable element
+      stops the chaining at its own boundary — overscrolling past the
+      top or bottom still shows the native bounce/glow effect locally,
+      it just never reaches the ancestor. The stronger
+      <code>overscroll-behavior: none</code> suppresses that local
+      effect too. Either is simpler and more reliable than the older
+      workaround of a touchmove listener that calls
+      <code>preventDefault()</code>, which also has to special-case
+      being at the exact top/bottom to avoid breaking scrolling inside
+      the element itself.
+    </p>
+  </article>
+</main>
+</body>
+</html>
