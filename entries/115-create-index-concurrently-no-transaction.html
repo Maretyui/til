@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: CREATE INDEX CONCURRENTLY can't run inside a transaction block</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A migration file with two statements in it failed on the second one</h2>
+    <p>
+      The goal was to add an index without locking writers out for the
+      full build time, so the migration used
+      <code>CREATE INDEX CONCURRENTLY</code>. It worked fine run by hand
+      at the psql prompt. Wrapped in a migration file that ran both
+      statements inside one transaction, it failed immediately:
+    </p>
+    <pre><code>BEGIN;
+CREATE INDEX CONCURRENTLY idx_events_user_id ON events (user_id);
+ALTER TABLE events ADD CONSTRAINT events_user_id_fkey
+  FOREIGN KEY (user_id) REFERENCES users (id);
+COMMIT;
+-- ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block</code></pre>
+    <h2>Why: the whole point of CONCURRENTLY is two separate transactions</h2>
+    <p>
+      A normal <code>CREATE INDEX</code> takes a lock that blocks writes
+      for the whole build and does it as one transaction. The
+      <code>CONCURRENTLY</code> variant avoids that lock by scanning the
+      table twice in two separate transactions, with a wait in between
+      for any transactions that were already in flight when it started.
+      That's structurally incompatible with being wrapped in an outer
+      transaction — there's no "one transaction" for it to join, so
+      Postgres refuses outright rather than silently falling back to a
+      blocking build.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Migration tools that auto-wrap every migration in a transaction
+      (so a failure rolls back cleanly) need a per-migration opt-out for
+      any statement using <code>CONCURRENTLY</code>, and that statement
+      has to be the only one in its migration — it can't share a file
+      with other DDL that still wants transactional safety. It also
+      can't be rolled back automatically on failure: a crashed concurrent
+      build leaves an <code>INVALID</code> index behind that has to be
+      dropped and rebuilt by hand, it isn't cleaned up for you.
+    </p>
+  </article>
+</main>
+</body>
+</html>
