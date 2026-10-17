@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/115-create-index-concurrently-no-transaction.html">
+        CREATE INDEX CONCURRENTLY can't run inside a transaction block
+        <small>databases — a migration tool that auto-wraps every file in BEGIN/COMMIT failed outright on CREATE INDEX CONCURRENTLY; it builds the index in two separate transactions to avoid blocking writers, which is structurally incompatible with being nested inside an outer one, so it has to be the only statement in its migration with the wrapper disabled</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/114-postgres-add-column-default-rewrite.html">
         ADD COLUMN with a non-constant DEFAULT locks the whole table
         <small>databases — a routine ALTER TABLE ADD COLUMN ... DEFAULT now() froze every writer for several seconds; Postgres 11+ only takes the fast metadata-only path for a constant default, a volatile one like now() forces a full table rewrite under an ACCESS EXCLUSIVE lock regardless of table size</small>
