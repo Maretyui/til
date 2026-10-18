@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: hashFiles() silently ignores lockfiles outside the glob you gave it</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A CI cache kept serving last week's dependencies after a lockfile change</h2>
+    <p>
+      A GitHub Actions workflow for a small monorepo cached
+      <code>node_modules</code> keyed on a hash of the lockfile. After
+      bumping a dependency in one package and pushing, the install step
+      finished suspiciously fast and the old version was still what
+      actually ran — the cache had been restored even though the
+      lockfile had clearly changed.
+    </p>
+    <pre><code>- uses: actions/cache@v4
+  with:
+    path: '**/node_modules'
+    key: modules-${{ hashFiles('package-lock.json') }}</code></pre>
+    <h2>Why: hashFiles() only hashes the paths it's given, nothing more</h2>
+    <p>
+      <code>package-lock.json</code> as a bare pattern only matches the
+      file at the repository root. The monorepo's actual lockfile
+      changes were happening in <code>packages/api/package-lock.json</code>
+      — a path the glob never touched. <code>hashFiles()</code> doesn't
+      error or warn when a pattern matches nothing or only partially
+      matches; it just hashes whatever it did find (in this case, nothing
+      changed from the only file it was watching) and returns a cache key
+      that looks perfectly valid. The workflow had no reason to suspect
+      anything was wrong because every step reported success.
+    </p>
+    <pre><code>key: modules-${{ hashFiles('**/package-lock.json') }}</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A recursive glob like <code>**/package-lock.json</code> is needed
+      for any repo with more than one lockfile, and it's worth
+      double-checking what a cache key pattern actually matches rather
+      than assuming a single bare filename covers every workspace. A
+      cheap sanity check: temporarily echo
+      <code>${{ hashFiles('**/package-lock.json') }}</code> as a build
+      step output after any change to the cache config, and confirm the
+      hash actually changes when a lockfile does — a stale cache fails
+      silently, it never fails loudly.
+    </p>
+  </article>
+</main>
+</body>
+</html>

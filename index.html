@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/118-github-actions-cache-hashfiles-subdirectory.html">
+        hashFiles() silently ignores lockfiles outside the glob you gave it
+        <small>ci — a monorepo's cache key only hashed the root package-lock.json, so a dependency bump in a subpackage's lockfile restored a stale node_modules cache every time; hashFiles() matches zero or partial paths without ever warning, a recursive **/package-lock.json glob is needed for more than one lockfile</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/117-ssh-controlmaster-stale-socket-after-reboot.html">
         SSH ControlMaster kept serving a dead connection after a reboot
         <small>ssh — every new session from one machine hung for ~15s after a remote reboot before connecting, because ControlMaster's multiplexed socket survived the reboot and pointed at a connection that no longer existed; ssh -O exit tears down the stale socket, ControlPersist with a short idle timeout avoids it recurring</small>
