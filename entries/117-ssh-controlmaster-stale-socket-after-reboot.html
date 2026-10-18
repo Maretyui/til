@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: SSH ControlMaster kept serving a dead connection after a reboot</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Every new SSH session hung for a while, then connected, right after a host came back up from a reboot</h2>
+    <p>
+      A box went down for a quick reboot. Once it was back and pingable,
+      every <code>ssh</code> into it from one particular machine stalled
+      for around 15 seconds before finally connecting — but only from
+      that one machine. Fresh connections from anywhere else worked
+      instantly. Deleting and re-running the command made no difference;
+      it hung every single time until the stall timed out on its own.
+    </p>
+    <h2>Why: ControlMaster was still holding a socket to a connection that no longer existed</h2>
+    <p>
+      That one machine had <code>ControlMaster auto</code> configured for
+      connection multiplexing, so the very first SSH session to that host
+      had opened a persistent control socket and every later session was
+      reusing it instead of opening a new TCP connection. The reboot
+      killed the remote sshd process the socket pointed at, but the local
+      control socket file itself survived untouched — ssh had no way to
+      know the other end was gone until it tried to use it, which is
+      exactly the ~15 second hang: a dead TCP connection with no reset
+      packet to report it, so the client just waited out its own timeout
+      before giving up on the stale multiplexed session and opening a
+      fresh one.
+    </p>
+    <pre><code># find and kill the stale control socket by hand
+ssh -O check user@host
+ssh -O exit user@host</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>ssh -O check</code> reports whether a given host still has a
+      live control socket, and <code>-O exit</code> tears it down without
+      needing to wait for the hang. The cleaner fix is a
+      <code>ControlPersist</code> value with a short idle timeout (e.g.
+      <code>ControlPersist 30s</code>) instead of leaving the master
+      connection open indefinitely — it still gets the multiplexing
+      speedup for a burst of commands, but a socket left over from before
+      a remote reboot doesn't linger around to cause a confusing one-off
+      hang days later.
+    </p>
+  </article>
+</main>
+</body>
+</html>
