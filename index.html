@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/117-ssh-controlmaster-stale-socket-after-reboot.html">
+        SSH ControlMaster kept serving a dead connection after a reboot
+        <small>ssh — every new session from one machine hung for ~15s after a remote reboot before connecting, because ControlMaster's multiplexed socket survived the reboot and pointed at a connection that no longer existed; ssh -O exit tears down the stale socket, ControlPersist with a short idle timeout avoids it recurring</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/116-overscroll-behavior-scroll-chaining.html">
         A scrolled-out modal keeps scrolling the page behind it
         <small>css — flinging to the bottom of a scrollable modal list handed leftover swipe momentum to the page behind it; touch scroll chaining to the next scrollable ancestor happens regardless of position: fixed or overflow: hidden on the body, overscroll-behavior: contain on the inner scroller stops it at its own boundary</small>
