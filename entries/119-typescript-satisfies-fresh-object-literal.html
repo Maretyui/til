@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: satisfies only catches excess properties on a fresh object literal</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A typo'd config field passed satisfies without a single complaint</h2>
+    <p>
+      A small config object was being validated against an interface with
+      <code>satisfies</code> instead of a type annotation, specifically to
+      keep the narrower literal type for later use. A field had been
+      misspelled — <code>verbse</code> instead of <code>verbose</code> — and
+      TypeScript never flagged it, even though the exact same typo on a
+      plain object-literal annotation gets caught immediately.
+    </p>
+    <pre><code>interface Config {
+  mode: "dev" | "prod";
+  verbose: boolean;
+}
+
+const raw = { mode: "dev", verbse: true };
+const config = raw satisfies Config; // no error, "verbse" silently ignored</code></pre>
+    <h2>Why: excess-property checking only applies to a fresh literal</h2>
+    <p>
+      TypeScript's excess-property check — the thing that normally rejects
+      an object literal with a field the target type doesn't know about —
+      only fires when the literal is written directly at the checked
+      position. The moment it's assigned to a variable first, it stops
+      being a "fresh" literal as far as the checker is concerned, and only
+      ordinary structural compatibility applies: having every required
+      property is enough, extra properties are fine. <code>satisfies</code>
+      doesn't change that rule, it just runs the same check at a different
+      point:
+    </p>
+    <pre><code>// caught — the literal is fresh right here
+const config2 = { mode: "dev", verbse: true } satisfies Config;
+//                              ^^^^^^ Error: Object literal may only
+//                              specify known properties, and 'verbse'
+//                              does not exist in type 'Config'.</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>satisfies</code> is only as strict as a direct literal check —
+      routing the object through an intermediate <code>const</code>, a
+      spread, or a factory function before the <code>satisfies</code>
+      clause quietly turns off excess-property checking, typos and all.
+      If the value doesn't originate as a literal at the checked
+      expression, <code>satisfies</code> is only verifying "has the right
+      shape," not "has exactly the right shape."
+    </p>
+  </article>
+</main>
+</body>
+</html>

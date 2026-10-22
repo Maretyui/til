@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/119-typescript-satisfies-fresh-object-literal.html">
+        satisfies only catches excess properties on a fresh object literal
+        <small>typescript — a typo'd config field passed a `satisfies Config` check without a single error; excess-property checking only fires on a literal written directly at the checked expression, so routing the object through an intermediate const (or a spread) before the satisfies clause silently turns that check off</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/118-github-actions-cache-hashfiles-subdirectory.html">
         hashFiles() silently ignores lockfiles outside the glob you gave it
         <small>ci — a monorepo's cache key only hashed the root package-lock.json, so a dependency bump in a subpackage's lockfile restored a stale node_modules cache every time; hashFiles() matches zero or partial paths without ever warning, a recursive **/package-lock.json glob is needed for more than one lockfile</small>
