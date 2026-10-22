@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: nohup alone doesn't keep an SSH background job alive</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A server start script kept dying seconds after the SSH session closed</h2>
+    <p>
+      A one-off game server process was launched over a single non-interactive
+      SSH command, backgrounded so the connection could be closed right away:
+    </p>
+    <pre><code>ssh host 'cd /srv/app && nohup ./start.sh &'</code></pre>
+    <p>
+      Despite <code>nohup</code>, the process reliably died a few seconds
+      after the terminal closed — long enough to print its startup banner,
+      not long enough to actually serve anything.
+    </p>
+    <h2>Why: nohup blocks the signal, not the broken pipe</h2>
+    <p>
+      <code>nohup</code> does exactly one thing: it makes the process ignore
+      <code>SIGHUP</code>. It does nothing about where that process's
+      <code>stdout</code>/<code>stderr</code> file descriptors point. In a
+      one-off <code>ssh host 'cmd'</code> invocation without a pseudo-terminal,
+      those descriptors are still the pipe back through the SSH channel
+      itself. Closing the SSH session tears down that channel, and the next
+      time the backgrounded process writes a log line to stdout, the write
+      fails — <code>SIGPIPE</code> for anything that doesn't check the
+      return value, a thrown I/O exception for anything that does, and
+      either way the process exits. It was never the hangup that killed it;
+      ignoring <code>SIGHUP</code> just meant the kill happened via its own
+      output instead.
+    </p>
+    <pre><code>ssh host 'cd /srv/app && nohup ./start.sh > server.log 2>&1 &'</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      For anything launched over a non-interactive SSH command that needs
+      to outlive the connection, <code>nohup</code> and redirecting
+      <code>stdout</code>/<code>stderr</code> away from the session are two
+      separate, both-required steps — one blocks the signal, the other
+      detaches the file descriptors the signal was never going to save
+      anyway. <code>setsid</code> is the more complete fix since it also
+      drops the controlling terminal entirely, but the redirect alone is
+      usually what was actually missing.
+    </p>
+  </article>
+</main>
+</body>
+</html>

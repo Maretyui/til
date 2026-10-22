@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/120-ssh-background-job-nohup-stdout-pipe.html">
+        nohup alone doesn't keep an SSH background job alive
+        <small>ssh — a server start script launched via a one-off non-interactive ssh command kept dying seconds after the connection closed despite nohup; nohup only blocks SIGHUP, it doesn't move stdout/stderr off the SSH channel, so the first log line written after the channel closes kills the process anyway — redirect output to a file (or use setsid) in addition to nohup</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/119-typescript-satisfies-fresh-object-literal.html">
         satisfies only catches excess properties on a fresh object literal
         <small>typescript — a typo'd config field passed a `satisfies Config` check without a single error; excess-property checking only fires on a literal written directly at the checked expression, so routing the object through an intermediate const (or a spread) before the satisfies clause silently turns that check off</small>
