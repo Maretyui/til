@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: /forceload keeps a chunk simulating long after everyone forgot about it</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Tick times crept up on a server with nobody building anything new</h2>
+    <p>
+      A survival server's average tick time had been quietly climbing for
+      weeks, with no obvious cause — the player count hadn't grown and no
+      new redstone contraptions had been reported. A tick profiler pointed
+      at one chunk doing far more work than it should for an area nobody
+      was standing in.
+    </p>
+    <h2>Why: forceloaded chunks ignore distance to players entirely</h2>
+    <p>
+      <code>/forceload add &lt;x1&gt; &lt;z1&gt; [x2] [z2]</code> was run
+      months earlier to keep an automatic farm running while everyone was
+      offline overnight. Normal chunks only tick — mob AI, random ticks,
+      redstone, crop growth — while a player is within simulation distance.
+      A forceloaded chunk ticks <em>forever</em>, with zero players anywhere
+      near it, until something explicitly removes the flag:
+    </p>
+    <pre><code>/forceload add 220 480 260 520   # keeps that whole area ticking indefinitely
+/forceload list                  # easy to forget this was ever run
+/forceload remove 220 480 260 520</code></pre>
+    <p>
+      Server restarts don't clear it either — <code>forceload.json</code> in
+      the world save persists the list across reboots by design, so the
+      farm kept grinding (and costing tick time) through every restart in
+      between.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>/forceload</code> has no built-in expiry and no in-game reminder
+      that it's active, so it's easy to add for a one-off reason and never
+      remove. Run <code>/forceload list</code> as a routine part of
+      investigating tick lag before looking anywhere else, and treat any
+      <code>/forceload add</code> as something that needs a matching
+      <code>/forceload remove</code> once the reason for it is gone — not a
+      "set and forget" toggle.
+    </p>
+  </article>
+</main>
+</body>
+</html>
