@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/122-discord-custom-id-100-char-limit.html">
+        Discord button/select custom_id tops out at 100 characters
+        <small>discord bots — a ticket-panel button packed an action name, ticket ID and category path into one custom_id; a few long category paths pushed it past Discord's 100-character cap, and the client drops the click before it ever becomes an interaction, so it looks like a dead button with no error anywhere in the bot's own logs — keep state server-side and keep custom_id itself short and fixed-shape</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/121-minecraft-forceload-keeps-ticking.html">
         /forceload keeps a chunk simulating long after everyone forgot about it
         <small>minecraft server administration — tick times crept up for weeks with no new builds reported; a /forceload add from months earlier was still keeping a farm's chunks ticking with zero players nearby, since forceloaded chunks ignore simulation distance entirely and the flag survives restarts via forceload.json — /forceload list is worth checking before looking anywhere else for mystery tick lag</small>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: Discord button/select custom_id tops out at 100 characters</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A ticket-panel button worked for most tickets, silently did nothing for a few</h2>
+    <p>
+      A bot built its button <code>custom_id</code> by packing several
+      pieces of state into one string — an action name, a ticket ID, and a
+      snapshot of the category/subcategory path the user picked, e.g.
+      <code>claim:a1b2c3d4-...:billing:refund:duplicate-charge</code>. Most
+      clicks worked fine. A handful of tickets with long category names did
+      nothing at all when the button was clicked — no error logged
+      anywhere, no interaction received by the bot.
+    </p>
+    <h2>Why: Discord enforces a 100-character cap on custom_id, client-side</h2>
+    <p>
+      Discord's component schema caps <code>custom_id</code> at 100
+      characters. For a handful of the longer category paths, the packed
+      string crept past that limit. The bot never saw an error because the
+      truncation/rejection happens in the Discord client before the click
+      is ever turned into an interaction — from the bot's side, the click
+      simply never arrives. It looks exactly like a dead button, not like
+      a validation failure, so there's no payload or log line pointing at
+      the cause.
+    </p>
+    <pre><code>// This builds a custom_id that's valid for short categories and silently
+// broken for long ones — nothing here warns you when it crosses 100 chars.
+const customId = `claim:${ticketId}:${categoryPath.join(':')}`;</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Treat <code>custom_id</code> as a cramped, fixed-size slot, not a
+      convenient place to serialize state. Store the real state
+      server-side (a ticket/category lookup keyed by ID) and keep the
+      <code>custom_id</code> itself to a short, fixed-shape identifier —
+      and assert its length at the point you build it, so a future change
+      that makes it longer fails loudly in development instead of quietly
+      eating clicks for only the longest-named cases in production.
+    </p>
+  </article>
+</main>
+</body>
+</html>
