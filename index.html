@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/123-bfcache-pageshow-persisted.html">
+        The back/forward cache restores a page without re-running its scripts
+        <small>web dev — a WebSocket status badge got stuck on "connecting..." forever after a Back navigation; the browser's bfcache restored the whole page from an in-memory snapshot instead of reloading it, so on-load listeners never fired again — a pageshow listener checking event.persisted is the hook that actually fires on a bfcache restore</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/122-discord-custom-id-100-char-limit.html">
         Discord button/select custom_id tops out at 100 characters
         <small>discord bots — a ticket-panel button packed an action name, ticket ID and category path into one custom_id; a few long category paths pushed it past Discord's 100-character cap, and the client drops the click before it ever becomes an interaction, so it looks like a dead button with no error anywhere in the bot's own logs — keep state server-side and keep custom_id itself short and fixed-shape</small>

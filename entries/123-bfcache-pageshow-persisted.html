@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: the back/forward cache restores a page without re-running its scripts</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A "connecting..." status kept showing after navigating back, even though the connection was fine</h2>
+    <p>
+      A page opened a WebSocket on load and showed a status badge while it
+      connected. Users who navigated away and then hit the browser's Back
+      button sometimes landed on a page permanently stuck on "connecting...",
+      even though the socket underneath was open and working — clicking
+      anything that depended on the connection just did nothing.
+    </p>
+    <h2>Why: the page was never reloaded, so the "on load" code never ran again</h2>
+    <p>
+      Modern browsers can restore an entire page — DOM, JS heap, in-flight
+      timers — from an in-memory snapshot on back/forward navigation,
+      instead of reloading it. This is the back/forward cache (bfcache).
+      When that happens, <code>DOMContentLoaded</code> and the page's other
+      "on load" listeners do not fire again, because the page was never
+      torn down in the first place. The status badge was only ever updated
+      by the connection-setup code that ran on the <em>original</em> load,
+      so a bfcache-restored page kept showing whatever state it was in at
+      the moment it got frozen — in this case, "connecting...", because the
+      snapshot happened to be taken before the socket's open event fired.
+    </p>
+    <pre><code>// Runs once per real page load. Never runs again on a bfcache restore,
+// so any UI state set here goes stale the moment the page is frozen.
+window.addEventListener('DOMContentLoaded', () => {
+  connectSocket();
+  setStatus('connecting...');
+});
+
+// Fires on every navigation that lands on this page, including a
+// bfcache restore. event.persisted tells you which kind just happened.
+window.addEventListener('pageshow', (event) => {
+  if (event.persisted) {
+    reconcileConnectionState();
+  }
+});</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      Anything that sets UI state based on an async result — a connection
+      status, a "last updated" timestamp, a fetched feature flag — needs a
+      <code>pageshow</code> listener that checks <code>event.persisted</code>
+      and re-syncs, not just a one-time setup on load. The same applies in
+      reverse for cleanup: a <code>pagehide</code> listener (not
+      <code>beforeunload</code>, which can itself block the page from being
+      eligible for bfcache) is the right place to pause timers or mark
+      connections as "may be stale" before the page is frozen.
+    </p>
+  </article>
+</main>
+</body>
+</html>
