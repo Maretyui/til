@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: a date-only string parses as UTC midnight, not local midnight</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A booking saved as "the 30th" displayed as "the 29th" for some users</h2>
+    <p>
+      A date picker handed back a plain <code>"2026-10-30"</code> string,
+      which got stored as-is and later turned into a <code>Date</code> to
+      format for display. For anyone west of UTC — including a server
+      running in a different timezone than the browser that first saved it
+      — the date on screen was one day earlier than what was picked.
+    </p>
+    <h2>Why: a date-only string and a full timestamp parse completely differently</h2>
+    <p>
+      Per spec, <code>new Date(string)</code> treats a bare
+      <code>YYYY-MM-DD</code> string as UTC midnight, but a string with a
+      time component attached is parsed in the <em>local</em> timezone.
+      Adding a time doesn't just add precision, it switches which clock the
+      parser uses:
+    </p>
+    <pre><code>new Date("2026-10-30");            // UTC midnight on the 30th
+new Date("2026-10-30T00:00:00");   // local midnight on the 30th
+
+// in a UTC-5 timezone, formatting the first one locally
+// rolls it back to 7pm on the 29th
+new Date("2026-10-30").toString();
+// "Thu Oct 29 2026 19:00:00 GMT-0500"</code></pre>
+    <h2>The actual lesson</h2>
+    <p>
+      A value that's conceptually a calendar date — a birthday, a booking
+      day, a deadline with no time of day — shouldn't round-trip through
+      <code>Date</code> parsing at all if it can be avoided; split it into
+      year/month/day fields, or at minimum always attach a time component
+      (<code>"T00:00:00"</code>) before parsing so the local-timezone path
+      is used instead of the UTC one. The bug doesn't show up for whoever
+      sits in UTC+0 while testing, which is exactly how it reached
+      production unnoticed.
+    </p>
+  </article>
+</main>
+</body>
+</html>

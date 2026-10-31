@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/124-date-only-strings-parsed-as-utc.html">
+        A date-only string parses as UTC midnight, a timestamp parses locally
+        <small>web dev — a booking saved as a plain "2026-10-30" string displayed a day earlier for anyone west of UTC; new Date() uses the UTC clock for a bare YYYY-MM-DD but the local clock the moment a time component is attached, so adding precision silently switches timezones</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/123-bfcache-pageshow-persisted.html">
         The back/forward cache restores a page without re-running its scripts
         <small>web dev — a WebSocket status badge got stuck on "connecting..." forever after a Back navigation; the browser's bfcache restored the whole page from an in-memory snapshot instead of reloading it, so on-load listeners never fired again — a pageshow listener checking event.persisted is the hook that actually fires on a bfcache restore</small>
