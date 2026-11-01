@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: /execute if score against an unset score is just false, not an error</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>A command block chain that worked in testing did nothing for half the playerbase</h2>
+    <p>
+      A minigame lobby used a scoreboard objective to gate a command chain —
+      only players past a certain score should get teleported to the arena.
+      It worked perfectly for anyone who'd played a round before. Brand new
+      players, whose score for that objective had never been set at all,
+      just stood at the lobby spawn with no error, no message, and nothing
+      in the command block output to say why the condition failed.
+    </p>
+    <h2>Why: "no score" and "score of 0" are different things <code>/execute if score</code> can't confuse, but a player can</h2>
+    <p>
+      <code>/execute if score &lt;target&gt; &lt;objective&gt; matches &lt;range&gt;</code>
+      only evaluates true if the target actually has an entry on that
+      objective's scoreboard. A player who was never
+      <code>/scoreboard players set</code> or <code>add</code>'d onto it has
+      no score at all — not zero, genuinely absent — and the condition
+      silently resolves to false for any range, including
+      <code>matches 0..</code>:
+    </p>
+    <pre><code># looks like it should pass for a brand new player with "no progress yet"
+execute if score @s minigame_wins matches 0.. run teleport @s arena
+
+# but a player who was never added to the objective has no score row,
+# not a score of 0 — this condition is false for them, every time</code></pre>
+    <p>
+      The lobby's own join script only called
+      <code>/scoreboard players add @s minigame_wins 0</code> the first time
+      someone actually finished a round, so anyone who hadn't yet had no row
+      to match against.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      Any objective a command chain gates logic on needs every player
+      explicitly initialized onto it — typically with
+      <code>scoreboard players add @s &lt;objective&gt; 0</code> on first
+      join — before the first <code>/execute if score</code> check against
+      them ever runs. There's no "treat missing as zero" fallback in the
+      command syntax itself; an absent score and a present zero score are
+      indistinguishable in-game until you check the objective's tracker and
+      notice the player's name just isn't listed at all.
+    </p>
+  </article>
+</main>
+</body>
+</html>

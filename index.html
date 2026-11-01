@@ -15,6 +15,12 @@
   <ul class="entries" id="entries">
     <!-- new entries get added here, newest first -->
     <li>
+      <a href="entries/126-minecraft-scoreboard-unset-score-execute-if.html">
+        /execute if score against an unset score is false, not an error
+        <small>minecraft server administration — a minigame's teleport gate checked a scoreboard objective with "matches 0.." expecting it to catch brand-new players at zero; a player never added to that objective has no score row at all, which the condition treats as false for any range, so new players sat at spawn with no error anywhere in the chain</small>
+      </a>
+    </li>
+    <li>
       <a href="entries/125-sendbeacon-64kb-payload-limit.html">
         navigator.sendBeacon drops oversized payloads with no error
         <small>web dev — an unload handler batched queued analytics events into one sendBeacon() call; on sessions with enough events to push the JSON past the ~64KB engine limit, the call just returns false and the batch vanishes, with nothing thrown and nothing logged anywhere to explain it</small>
