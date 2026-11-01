@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TIL: navigator.sendBeacon drops payloads over 64KB with no error</title>
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  article {
+    max-width: 640px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+  article h2 { margin-top: 2rem; }
+  article code {
+    background: var(--card);
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  article pre {
+    background: var(--card);
+    border: 1px solid #1f2530;
+    border-radius: 10px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  a.back:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>til</h1>
+  <p>Today I Learned — short notes, one per day.</p>
+</header>
+<main>
+  <a class="back" href="../index.html">&larr; back to all entries</a>
+
+  <article>
+    <h2>Analytics events kept disappearing, only on pages with a lot of tracked state</h2>
+    <p>
+      A page-unload handler collected a batch of queued analytics events into
+      one JSON payload and fired it with <code>navigator.sendBeacon()</code>,
+      exactly as the API is meant to be used — it's designed to survive the
+      page unloading before a normal <code>fetch()</code> would finish. Most
+      of the time it worked. On pages where the user had clicked around a
+      lot before leaving, the batch just never arrived, with nothing logged
+      client-side or server-side to explain why.
+    </p>
+    <h2>Why: the call returns <code>false</code> for an oversized payload instead of throwing</h2>
+    <p>
+      <code>sendBeacon()</code> has a payload ceiling — 64KB on most engines —
+      and when the body is over that limit, the call doesn't throw, doesn't
+      reject, and doesn't queue the request anyway. It just returns
+      <code>false</code> and silently drops the data:
+    </p>
+    <pre><code>const ok = navigator.sendBeacon(url, JSON.stringify(bigBatch));
+// ok === false once the JSON string crosses ~64KB — nothing is sent,
+// and nothing throws unless the return value is actually checked</code></pre>
+    <p>
+      The bug only showed up on sessions with enough queued events to push
+      the serialized batch over that limit, which is exactly the kind of
+      session most worth capturing accurately.
+    </p>
+    <h2>The actual lesson</h2>
+    <p>
+      <code>sendBeacon()</code>'s return value is not optional to check — it's
+      the only signal that the send was even attempted. Once a payload can
+      grow unbounded (a batch of queued events, not a single fixed-size
+      ping), either cap the batch size before the unload handler ever runs,
+      or check the boolean and fall back to splitting the payload and
+      retrying smaller chunks instead of assuming "fire and forget" means
+      "always delivered."
+    </p>
+  </article>
+</main>
+</body>
+</html>
